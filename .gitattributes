@@ -1,0 +1,7 @@
+# LF in every checkout, Windows included: tests and tools read these files as text.
+* text=auto eol=lf
+# Scripts run inside Linux containers: LF even on a Windows checkout.
+*.sh text eol=lf
+Dockerfile* text eol=lf
+# Document fixtures are compared by content and charset: never convert their bytes.
+test/fixtures/** -text

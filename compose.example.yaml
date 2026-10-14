@@ -1,0 +1,35 @@
+# Everkeep over Streamable HTTP in Docker. Copy to compose.yaml and adjust.
+#
+# The vault is the folder you bind-mount at /vault. The server runs as uid 1000
+# ("node" in the image): the vault must be writable by that uid, or set user:
+# below to the owner of your vault (e.g. "1001:1001", see `id -u` / `id -g`).
+# With user: set, the /data volume must belong to that user too, otherwise the
+# server stops at start with "state_dir /data is not writable by this process".
+#
+# The token: generated on the first start and kept in the data volume; show it
+# with `docker compose exec everkeep everkeep token`. To bring your own instead,
+# put EVERKEEP_TOKEN=<at least 32 characters> in a .env file next to this one
+# (git-ignored) and uncomment env_file below. No secrets in this file.
+services:
+  everkeep:
+    image: ghcr.io/st412m/everkeep:1.0.0
+    # Or build the image from this repository instead of pulling it:
+    # build: .
+    restart: unless-stopped
+    # user: "1001:1001"
+    # env_file: .env
+    # Optional settings (see everkeep.example.json), with the volume line below;
+    # the paths in the file are container paths, e.g. "vault": "/vault".
+    # environment:
+    #   EVERKEEP_CONFIG: /config/everkeep.json
+    ports:
+      # Loopback only: put a TLS reverse proxy in front for remote clients.
+      # "3100:3100" opens it to the local network, where only the token protects it.
+      - "127.0.0.1:3100:3100"
+    volumes:
+      # - ./everkeep.json:/config/everkeep.json:ro
+      - data:/data
+      - /srv/notes:/vault
+
+volumes:
+  data:

@@ -1,0 +1,67 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [22, 24]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci --omit=optional
+      - name: Syntax check
+        run: for f in src/*.js; do node --check "$f"; done
+      # The glob is quoted: node expands it itself.
+      - name: Tests
+        run: node --test "test/*.test.js"
+
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --omit=optional
+      # shellcheck comes with the runner image.
+      - name: Shell
+        run: shellcheck scripts/toolchain-check.sh
+      - name: YAML
+        run: >-
+          pipx run yamllint==1.38.0 --strict
+          -d "{extends: default, rules: {document-start: disable,
+          line-length: {max: 160}, truthy: {check-keys: false}}}"
+          compose.example.yaml .github/workflows/ci.yml .github/workflows/image.yml
+      - name: Documentation examples
+        run: node tools/check-doc-examples.mjs
+      - name: Secret scan
+        run: node tools/scan-secrets.mjs
+      # One version in package.json, CHANGELOG, the Dockerfile pin, server.json
+      # and compose.example.yaml; server.json limits.
+      - name: Release consistency
+        run: node tools/check-release.mjs
+      # The package holds src/, scripts/, everkeep.example.json, README.md,
+      # CHANGELOG.md, LICENSE and package.json, nothing else.
+      - name: Package contents
+        run: |
+          npm pack --dry-run --json > pack.json
+          node -e '
+            const files = require("./pack.json")[0].files.map(f => f.path);
+            const ok = /^(src\/[^/]+\.js|scripts\/toolchain-check\.sh|everkeep\.example\.json|README\.md|CHANGELOG\.md|LICENSE|package\.json)$/;
+            const bad = files.filter(f => !ok.test(f));
+            if (bad.length) { console.error("unexpected in the package:", bad.join(", ")); process.exit(1); }
+            console.log(files.length + " files in the package");
+          '

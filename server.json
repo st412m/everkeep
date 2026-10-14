@@ -1,0 +1,37 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.st412m/everkeep",
+  "title": "Everkeep",
+  "description": "Your notes in one folder on your own server; AI clients read and edit it under write policies",
+  "repository": {
+    "url": "https://github.com/st412m/everkeep",
+    "source": "github"
+  },
+  "version": "1.0.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "everkeep",
+      "version": "1.0.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "EVERKEEP_VAULT",
+          "description": "Absolute path of the folder the server reads and edits (the vault)",
+          "isRequired": true,
+          "isSecret": false,
+          "format": "filepath"
+        },
+        {
+          "name": "EVERKEEP_CONFIG",
+          "description": "Path of the JSON config file; optional",
+          "isRequired": false,
+          "isSecret": false,
+          "format": "filepath"
+        }
+      ]
+    }
+  ]
+}

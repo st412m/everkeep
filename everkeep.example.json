@@ -1,0 +1,20 @@
+{
+  "$comment": [
+    "Everkeep settings. Every key is optional except vault (or env EVERKEEP_VAULT / --vault); the values below are the defaults.",
+    "Found at env EVERKEEP_CONFIG, else ~/.config/everkeep/config.json. Flags > env > this file > defaults. An unknown key is an error.",
+    "Paths are absolute. The token is never read from this file: --token-file, env EVERKEEP_TOKEN, or <state_dir>/token (generated).",
+    "state_dir holds the token and the document cache; default ~/.local/state/everkeep (in Docker: /data). It must be outside the vault.",
+    "allowed_hosts: host names (no port) accepted in Host and Origin on a localhost bind, besides localhost: the public name a tunnel or proxy on this machine passes on.",
+    "policy_page: {\"mode\": \"off\"} or {\"mode\": \"ha-ingress\", \"port\": 3101, \"users\": []} (the Home Assistant app only)."
+  ],
+  "vault": "/srv/notes",
+  "port": 3100,
+  "host": "127.0.0.1",
+  "allowed_hosts": [],
+  "log_requests": false,
+  "max_doc_bytes": 52428800,
+  "max_text_bytes": 20971520,
+  "extract_timeout_s": 60,
+  "cache_max_mb": 512,
+  "policy_page": { "mode": "off" }
+}

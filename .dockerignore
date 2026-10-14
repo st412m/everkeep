@@ -1,0 +1,4 @@
+# The image needs only the Dockerfile and, for a local build, an npm pack tarball.
+*
+!Dockerfile
+!*.tgz

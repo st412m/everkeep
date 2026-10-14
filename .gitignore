@@ -1,0 +1,7 @@
+CLAUDE.md
+node_modules/
+out/
+*.tgz
+.env*
+# Your copy of compose.example.yaml carries real paths
+compose.yaml

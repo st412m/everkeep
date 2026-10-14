@@ -1,0 +1,9 @@
+Test fixtures
+-------------
+The files in documents/ are copies of test fixtures of doclines 0.1.0
+(https://github.com/st412m/doclines, test/fixtures/formats/, MIT licence,
+author st412m), used unchanged: text.docx, text.xlsx, text.pdf,
+refused-scan.pdf, mail-mixed.eml, refused-image.png, utf8.html. They are
+synthetic documents made for format tests; the "password" lines in them are
+fake values. These files are test data only and are not part of the npm
+package.
