@@ -36,9 +36,11 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci --omit=optional
-      # shellcheck comes with the runner image.
+      # shellcheck comes with the runner image (0.9.0 on ubuntu-24.04). SC2015
+      # ("A && B || C is not if-then-else") is excluded: the script means "fail
+      # unless both tests pass"; shellcheck 0.11.0 no longer reports it there.
       - name: Shell
-        run: shellcheck scripts/toolchain-check.sh
+        run: shellcheck -e SC2015 scripts/toolchain-check.sh
       - name: YAML
         run: >-
           pipx run yamllint==1.38.0 --strict
