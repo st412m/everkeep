@@ -103,7 +103,7 @@ A second file with the same name and stamp gets `-1`, `-2` and so on after the s
 - A zone with no trash configured cannot discard anything.
 - A read-only zone cannot discard anything.
 - Directories are not discarded as a unit: trash the files inside one by one.
-- `move_file` into a trash directory is refused; use `trash_file`.
+- `move_file` or `copy_file` into a trash directory is refused; use `trash_file`.
 - Trash contents are excluded from `grep_files`, `search_files`, `directory_tree` and `read_multiple_files`. They stay readable by explicit path with `read_text_file`.
 - `list_directory` and `list_directory_with_sizes` flag a directory that looks like a trash but that no policy in force claims, and leave it alone.
 

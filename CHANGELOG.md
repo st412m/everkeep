@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.1.0 — 2026-10-27
+
+### Added
+- **MCP protocol 2026-07-28** next to the earlier revisions, over HTTP and stdio: no `initialize`, the protocol version and client capabilities in every request's `_meta`, `server/discover`, `resultType` and `serverInfo` in every result, `ttlMs` and `cacheScope` on `tools/list` and `server/discover`. Over HTTP the `MCP-Protocol-Version`, `Mcp-Method` and `Mcp-Name` headers are checked against the body (`-32020` on a mismatch), an unsupported version gets `-32022` with the supported list, an unknown method 404. Clients on 2025-11-25 and earlier keep the `initialize` handshake.
+- **`copy_file`**: copies a file inside the vault; the destination follows the rules of `write_file` (missing parents created, overwriting an existing file only where the zone allows it, read-only zones, the trash, marker names and existing documents refused). Directories are not copied.
+- Protocol revision 2025-11-25 for clients that use `initialize`; it is now the answer to an unknown version.
+
+### Removed
+- `read_file`, the deprecated alias of `read_text_file`: use `read_text_file`. Still 20 tools.
+- The `#N` page suffix of `read_media_file` (`manual.pdf#3`): one PDF page as an image is `read_pdf_page`. A PDF given to `read_media_file`, with or without the suffix, is refused with that pointer.
+
+### Changed
+- EML text follows postal-mime 4.1.4: body text dropped in some malformed messages is extracted; a `message/rfc822` attachment keeps the line endings of the message, so its size in the attachment list can differ. Cached document text is extracted again once, since the cache is tied to the doclines version.
+- A JSON-RPC notification is never answered, whatever its method.
+- `trash_file` says in its description that a directory is not discarded as a unit.
+
+### Fixed
+- `read_media_file` reads an image whose name contains `#`; the path was cut at the `#` before.
+
+### Security
+- doclines 0.1.1 with postal-mime 4.1.4: fixes GHSA-f2hq-32vh-53cc (quadratic CPU time when decoding a mail header made of many joinable RFC 2047 base64 encoded words).
+
 ## 1.0.0 — 2026-10-14
 
 Continues ha-filesystem-mcp 2.9.0: the same server, now a standalone npm package that runs on Linux, in Docker and as the Home Assistant app.

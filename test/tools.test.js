@@ -7,7 +7,6 @@ const { TOOLS } = require('../src/server.js');
 const EXPECTED = {
   grep_files: ['Search file contents', true, false, true, false],
   read_text_file: ['Read text file', true, false, true, false],
-  read_file: ['Read file (deprecated)', true, false, true, false],
   read_media_file: ['Read media file', true, false, true, false],
   read_pdf_page: ['Render PDF page', true, false, true, false],
   read_pdf_text: ['Extract PDF text', true, false, true, false],
@@ -21,6 +20,7 @@ const EXPECTED = {
   list_directory_with_sizes: ['List directory with sizes', true, false, true, false],
   directory_tree: ['Show directory tree', true, false, true, false],
   move_file: ['Move or rename', false, true, false, false],
+  copy_file: ['Copy file', false, true, false, false],
   trash_file: ['Move to trash', false, true, false, false],
   search_files: ['Find files by name', true, false, true, false],
   get_file_info: ['Get file info', true, false, true, false],

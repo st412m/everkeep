@@ -1,6 +1,6 @@
 {
   "name": "everkeep",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "mcpName": "io.github.st412m/everkeep",
   "description": "Everkeep keeps your notes, decisions and projects in one folder on your own server. Your AI assistant reads it when a chat starts and writes down what you worked out — so tomorrow's conversation picks up where today's ended.",
   "license": "MIT",
@@ -37,6 +37,6 @@
     "test": "node --test \"test/*.test.js\""
   },
   "dependencies": {
-    "doclines": "0.1.0"
+    "doclines": "0.1.1"
   }
 }

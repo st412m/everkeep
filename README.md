@@ -24,14 +24,14 @@ Windows (PowerShell):
 
 ```powershell
 mkdir $HOME\everkeep-notes
-docker run -d --name everkeep --restart unless-stopped -p 127.0.0.1:3100:3100 -v "$HOME\everkeep-notes:/vault" -v everkeep-data:/data ghcr.io/st412m/everkeep:1.0.0
+docker run -d --name everkeep --restart unless-stopped -p 127.0.0.1:3100:3100 -v "$HOME\everkeep-notes:/vault" -v everkeep-data:/data ghcr.io/st412m/everkeep:1.1.0
 ```
 
 macOS or Linux:
 
 ```sh
 mkdir -p ~/everkeep-notes
-docker run -d --name everkeep --restart unless-stopped -p 127.0.0.1:3100:3100 -v "$HOME/everkeep-notes:/vault" -v everkeep-data:/data ghcr.io/st412m/everkeep:1.0.0
+docker run -d --name everkeep --restart unless-stopped -p 127.0.0.1:3100:3100 -v "$HOME/everkeep-notes:/vault" -v everkeep-data:/data ghcr.io/st412m/everkeep:1.1.0
 ```
 
 On Linux the folder must be writable by user id 1000. If the command `id -u` prints a different number, follow [Docker: who owns the folder](https://github.com/st412m/everkeep/blob/main/docs/installation.md#who-owns-the-folder) instead.
@@ -181,9 +181,8 @@ There is no OAuth: the token is the only key. A wrong path gets an empty 404, a 
 
 **Reading**
 - `read_text_file` — a whole file, `head`/`tail` lines, or an `offset`/`limit` range with line count and `rev`; documents as numbered lines
-- `read_file` — deprecated alias of `read_text_file`
 - `read_multiple_files` — several whole files in one response
-- `read_media_file` — image or audio as base64; a PDF page as JPEG (`#N` suffix on the path)
+- `read_media_file` — image or audio as base64
 - `read_pdf_text` — text of a PDF or a page range, numbered like `read_text_file`
 - `read_pdf_page` — one PDF page rendered as JPEG
 
@@ -196,6 +195,7 @@ There is no OAuth: the token is the only key. A wrong path gets an empty 404, a 
 - `edit_file` — literal `oldText` replacement, or line-addressed edits guarded by `rev`
 - `create_directory` — create a directory and its parents
 - `move_file` — move or rename a file or directory; also restores from the trash
+- `copy_file` — copy a file; the destination follows the rules of `write_file`
 - `trash_file` — move a file into its zone's trash; there is no delete
 
 **Listing**
@@ -247,7 +247,7 @@ With Docker, run the same commands inside the container: `docker exec everkeep e
 
 - **Claude shows no Everkeep tools.** Check that the container runs (`docker ps`), that the token in the URL or header is the current one (`everkeep token`), and for claude.ai that the HTTPS address answers from outside.
 - **Every write fails with `EACCES`.** The vault folder is not writable by the user Everkeep runs as (user id 1000 in Docker).
-- **400 / 401 / 403 / 404 / 405 / 406.** 401: wrong Bearer token. 404: wrong path or token in the path. 403: a `Host` or `Origin` that is neither local nor in `allowed_hosts`, on a server listening on `127.0.0.1`. 405: not `POST`. 406: the `Accept` header lists neither JSON nor event streams. 400: bad JSON or an unsupported `MCP-Protocol-Version`.
+- **400 / 401 / 403 / 404 / 405 / 406.** 401: wrong Bearer token. 404: wrong path or token in the path. 403: a `Host` or `Origin` that is neither local nor in `allowed_hosts`, on a server listening on `127.0.0.1`. 405: not `POST`. 406: the `Accept` header lists neither JSON nor event streams. 400: bad JSON, an unsupported protocol version, or request headers that disagree with the body.
 - **Every write is refused and listings print `⚠ Policy: BROKEN MARKER`.** A `.vault-policy` file is broken and locks its zone. Fix it with `everkeep policy` or by hand.
 
 More: [troubleshooting](https://github.com/st412m/everkeep/blob/main/docs/troubleshooting.md).

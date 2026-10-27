@@ -64,7 +64,7 @@ test('ranges: offset/limit, head, tail work on the extracted lines', async () =>
   assert.equal(r.text, `${J('text.docx')} · Word document (.docx) · lines 11-11 of 11\n11| End of fixture.`);
   r = await call('read_text_file', { path: J('text.docx'), offset: 12 });
   assert.equal(r.text, 'Error: offset 12 is past the end of the file (11 lines)');
-  r = await call('read_file', { path: J('text.docx'), offset: 8, limit: 1 });
+  r = await call('read_text_file', { path: J('text.docx'), offset: 8, limit: 1 });
   assert.equal(r.text, `${J('text.docx')} · Word document (.docx) · lines 8-8 of 11\n8| Temperature | −40 | 105`);
 });
 

@@ -751,15 +751,9 @@ const TOOLS = [
     }
   },
   {
-    name: 'read_file',
-    ...meta('Read file (deprecated)', { readOnly: true, destructive: false, idempotent: true, openWorld: false }),
-    description: 'DEPRECATED alias of read_text_file.',
-    inputSchema: { type: 'object', properties: { path: { type: 'string' }, head: { type: 'number' }, tail: { type: 'number' }, offset: { type: 'number' }, limit: { type: 'number' } }, required: ['path'] }
-  },
-  {
     name: 'read_media_file',
     ...meta('Read media file', { readOnly: true, destructive: false, idempotent: true, openWorld: false }),
-    description: 'Read an image, audio or PDF file. PDF returns one page (default 1, or "#N" path suffix) as JPEG plus the total page count. For PDF text use read_pdf_text; one PDF page as an image: read_pdf_page.',
+    description: 'Read an image or audio file as base64 with its MIME type. Not for PDF: one page as an image is read_pdf_page, the text is read_pdf_text.',
     inputSchema: { type: 'object', properties: { path: { type: 'string' } }, required: ['path'] }
   },
   {
@@ -869,9 +863,15 @@ const TOOLS = [
     inputSchema: { type: 'object', properties: { source: { type: 'string' }, destination: { type: 'string' }, rev: { type: 'string', description: 'Current rev of the source file, required when it leaves a zone with overwrite="rev".' } }, required: ['source', 'destination'] }
   },
   {
+    name: 'copy_file',
+    ...meta('Copy file', { readOnly: false, destructive: true, idempotent: false, openWorld: false }),
+    description: 'Copy a file to a new path inside the vault; the source stays. The destination follows the rules of write_file: overwriting an existing file needs its current rev in a zone with overwrite="rev" and is refused with overwrite="never"; read-only zones and the trash are refused. Directories are not copied.',
+    inputSchema: { type: 'object', properties: { source: { type: 'string' }, destination: { type: 'string' }, rev: { type: 'string', description: 'Current rev of the destination file, required to overwrite it in a zone with overwrite="rev".' } }, required: ['source', 'destination'] }
+  },
+  {
     name: 'trash_file',
     ...meta('Move to trash', { readOnly: false, destructive: true, idempotent: false, openWorld: false }),
-    description: 'Discard a file by moving it into the trash of its own zone, keeping its relative path and adding an arrival timestamp to the name. There is no delete: this is the only way to remove something. Fails if the zone has no trash configured. In a zone with overwrite="rev" the current rev is required — you have to read a file before throwing it away. To restore, move_file it back out of the trash.',
+    description: 'Discard a file by moving it into the trash of its own zone, keeping its relative path and adding an arrival timestamp to the name. There is no delete: this is the only way to remove something. Fails if the zone has no trash configured. In a zone with overwrite="rev" the current rev is required — you have to read a file before throwing it away. To restore, move_file it back out of the trash. A directory is not discarded as a unit: trash its files one by one.',
     inputSchema: { type: 'object', properties: { path: { type: 'string' }, rev: { type: 'string', description: 'Current rev of the file, required in a zone with overwrite="rev".' } }, required: ['path'] }
   },
   {
@@ -904,7 +904,6 @@ async function callTool(name, args) {
   const memo = new Map();
 
   switch (name) {
-    case 'read_file':
     case 'read_text_file': {
       const p = resolveSafe(args.path);
       // Documents are extracted; HTML, RTF, EML and FB2 read raw unless
@@ -968,16 +967,12 @@ async function callTool(name, args) {
     }
 
     case 'read_media_file': {
-      const rawPath = args.path;
-      const hashIdx = rawPath.lastIndexOf('#');
-      const pageNum = hashIdx !== -1 ? parseInt(rawPath.slice(hashIdx + 1)) || 1 : 1;
-      const cleanPath = hashIdx !== -1 ? rawPath.slice(0, hashIdx) : rawPath;
-      const p = resolveSafe(cleanPath);
-      const ext = path.extname(p.path).toLowerCase();
-      if (ext === '.pdf') {
-        const [totalPages, block] = await Promise.all([pdfPageCount(p), pdfPageToImage(p, pageNum)]);
-        return [{ type: 'text', text: `Page ${pageNum} of ${totalPages}` }, block];
+      // A PDF, also with the "#N" page suffix of everkeep 1.0, gets a pointer, not ENOENT.
+      if (/\.pdf(#\d*)?$/i.test(String(args.path))) {
+        throw new Error(`read_media_file does not read PDF (${args.path}): one page as an image is read_pdf_page with path and page, the text is read_pdf_text.`);
       }
+      const p = resolveSafe(args.path);
+      const ext = path.extname(p.path).toLowerCase();
       const data = fs.readFileSync(p.path).toString('base64');
       const mime = mimeType(ext);
       if (mime.startsWith('image/')) return [{ type: 'image', data, mimeType: mime }];
@@ -1242,6 +1237,31 @@ async function callTool(name, args) {
       return [{ type: 'text', text: `Moved: ${src.path} → ${dst.path}` }];
     }
 
+    case 'copy_file': {
+      const src = resolveSafe(args.source);
+      const dst = resolveSafe(args.destination);
+      assertNotMarker(src, 'copied');
+      const st = fs.statSync(src.path);
+      if (st.isDirectory())
+        throw new Error(`${src.path} is a directory. Directories are not copied — copy the files inside it one by one.`);
+      if (!st.isFile()) throw new Error(`${src.path} is not a regular file.`);
+
+      const zone = guardWrite(dst, memo, 'written');
+      if (P.inTrash(realPathOf(dst, zone), P.trashDirOf(zone.policy)))
+        throw new Error(`Refused — do not copy things into the trash; use trash_file to discard a file.`);
+      if (fs.existsSync(dst.path) && fs.statSync(dst.path).isDirectory())
+        throw new Error(`Refused — ${dst.path} is a directory; give the full path of the new file.`);
+      await assertNotDocument(dst);
+      const existed = guardOverwrite(dst, zone, args.rev, 'overwritten');
+
+      // Both destinations are checked paths: dst from resolveSafe, its directory
+      // from parentDir. A new file is created exclusively, so a file that
+      // appeared since the check is not overwritten unchecked.
+      fs.mkdirSync(parentDir(dst).path, { recursive: true });
+      fs.copyFileSync(src.path, dst.path, existed ? 0 : fs.constants.COPYFILE_EXCL);
+      return [{ type: 'text', text: `${existed ? 'Copied over' : 'Copied'}: ${src.path} → ${dst.path} · rev ${revOfFile(dst)}` }];
+    }
+
     case 'trash_file': {
       const p = resolveSafe(args.path);
       assertNotMarker(p, 'discarded');
@@ -1341,17 +1361,89 @@ async function callTool(name, args) {
   }
 }
 
-// The client's version is echoed when supported, otherwise the newest one.
-const SUPPORTED_PROTOCOL_VERSIONS = ['2025-06-18', '2025-03-26', '2024-11-05'];
+// Protocol revisions. Legacy (2025-11-25 and earlier): an initialize handshake,
+// then requests without per-request metadata; the client's version is echoed
+// when supported, otherwise the newest one. Modern (2026-07-28): no handshake;
+// every request carries its version and the client's capabilities in
+// params._meta, and every result names the server in its own _meta.
+const LEGACY_PROTOCOL_VERSIONS = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'];
+const MODERN_PROTOCOL_VERSIONS = ['2026-07-28'];
+const META_VERSION = 'io.modelcontextprotocol/protocolVersion';
+const META_CAPABILITIES = 'io.modelcontextprotocol/clientCapabilities';
+const META_SERVER_INFO = 'io.modelcontextprotocol/serverInfo';
 
 function negotiateProtocolVersion(requested) {
-  return SUPPORTED_PROTOCOL_VERSIONS.includes(requested) ? requested : SUPPORTED_PROTOCOL_VERSIONS[0];
+  return LEGACY_PROTOCOL_VERSIONS.includes(requested) ? requested : LEGACY_PROTOCOL_VERSIONS[0];
+}
+
+function isPlainObject(v) {
+  return !!v && typeof v === 'object' && !Array.isArray(v);
+}
+
+function metaOf(body) {
+  const params = body && body.params;
+  return isPlainObject(params) && isPlainObject(params._meta) ? params._meta : null;
+}
+
+function metaVersion(body) {
+  return metaOf(body)?.[META_VERSION];
+}
+
+// A request is served as 2026-07-28 when its _meta names a protocol version or
+// when it is server/discover, which exists only in that revision.
+function isModernRequest(body) {
+  return isPlainObject(body) && (metaVersion(body) !== undefined || body.method === 'server/discover');
+}
+
+function rpcError(id, code, message, data) {
+  return { jsonrpc: '2.0', id: id === undefined ? null : id, error: { code, message, ...(data !== undefined ? { data } : {}) } };
+}
+
+async function toolResult(params) {
+  try {
+    const content = await callTool(params && params.name, (params && params.arguments) || {});
+    // No structuredContent: the tools declare no outputSchema.
+    return { content };
+  } catch (e) {
+    return { content: [{ type: 'text', text: `Error: ${e.message}` }], isError: true };
+  }
+}
+
+// 2026-07-28: each request stands alone. A missing version or capabilities is
+// -32602, a version this server does not speak -32022 with the supported list,
+// a method this revision does not have (ping, initialize, resources/list, …)
+// -32601. tools/list and server/discover are fresh for 0 ms and private.
+async function handleModernRequest(body) {
+  const { id, method, params } = body;
+  if (id === undefined && typeof method === 'string') return null;
+
+  const meta = metaOf(body);
+  const version = meta?.[META_VERSION];
+  if (typeof version !== 'string' || version === '')
+    return rpcError(id, -32602, `Invalid params: _meta "${META_VERSION}" is required`);
+  if (!MODERN_PROTOCOL_VERSIONS.includes(version))
+    return rpcError(id, -32022, `Unsupported protocol version: ${clip(version, 40)}`, { supported: MODERN_PROTOCOL_VERSIONS, requested: version });
+  if (!isPlainObject(meta[META_CAPABILITIES]))
+    return rpcError(id, -32602, `Invalid params: _meta "${META_CAPABILITIES}" is required`);
+
+  const ok = payload => ({ jsonrpc: '2.0', id, result: {
+    resultType: 'complete', ...payload, _meta: { [META_SERVER_INFO]: { name: 'everkeep', version: VERSION } },
+  } });
+  if (method === 'server/discover')
+    return ok({ supportedVersions: MODERN_PROTOCOL_VERSIONS, capabilities: { tools: {} }, ttlMs: 0, cacheScope: 'private' });
+  if (method === 'tools/list') return ok({ tools: TOOLS, ttlMs: 0, cacheScope: 'private' });
+  if (method === 'tools/call') return ok(await toolResult(params));
+  return rpcError(id, -32601, `Method not found: ${method}`);
 }
 
 async function handleMcpRequest(body) {
   if (!body || typeof body !== 'object' || Array.isArray(body))
     return { jsonrpc: '2.0', id: null, error: { code: -32600, message: 'Invalid Request: each request must be a JSON object' } };
   const { id, method, params } = body;
+
+  // A notification (no id) is never answered, in either revision.
+  if (id === undefined && typeof method === 'string') return null;
+  if (isModernRequest(body)) return handleModernRequest(body);
 
   if (method === 'initialize') {
     return { jsonrpc: '2.0', id, result: {
@@ -1361,22 +1453,12 @@ async function handleMcpRequest(body) {
     }};
   }
 
-  if (method === 'notifications/initialized' || method === 'notifications/roots/list_changed') return null;
   if (method === 'ping') return { jsonrpc: '2.0', id, result: {} };
   if (method === 'tools/list') return { jsonrpc: '2.0', id, result: { tools: TOOLS } };
   if (method === 'resources/list') return { jsonrpc: '2.0', id, result: { resources: [] } };
   if (method === 'prompts/list') return { jsonrpc: '2.0', id, result: { prompts: [] } };
   if (method === 'roots/list') return { jsonrpc: '2.0', id, result: { roots: [{ uri: `file://${ALLOWED_DIR}`, name: 'VAULT' }] } };
-
-  if (method === 'tools/call') {
-    try {
-      const content = await callTool(params.name, params.arguments || {});
-      // No structuredContent: the tools declare no outputSchema.
-      return { jsonrpc: '2.0', id, result: { content } };
-    } catch (e) {
-      return { jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: `Error: ${e.message}` }], isError: true } };
-    }
-  }
+  if (method === 'tools/call') return { jsonrpc: '2.0', id, result: await toolResult(params) };
 
   return { jsonrpc: '2.0', id, error: { code: -32601, message: `Method not found: ${method}` } };
 }
@@ -1397,7 +1479,8 @@ if (GREP_WORKER) {
 
 module.exports = {
   init, TOOLS, handleMcpRequest,
-  negotiateProtocolVersion, SUPPORTED_PROTOCOL_VERSIONS,
+  negotiateProtocolVersion, LEGACY_PROTOCOL_VERSIONS, MODERN_PROTOCOL_VERSIONS,
+  isModernRequest, metaVersion, handleModernRequest,
   // Tests only: the share of the grep time spent extracting documents.
   setGrepDocBudget(ms) { GREP_DOC_BUDGET_MS = ms; },
 };

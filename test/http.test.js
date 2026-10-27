@@ -126,7 +126,7 @@ test('2.9.0 transport behind the front: GET 405, OPTIONS 204 with CORS, 406, Bad
   assert.equal(r.status, 204);
   assert.equal(r.headers.get('access-control-allow-origin'), '*');
   assert.equal(r.headers.get('access-control-allow-methods'), 'GET, POST, OPTIONS, DELETE');
-  assert.equal(r.headers.get('access-control-allow-headers'), 'Content-Type, Accept, mcp-session-id, mcp-protocol-version');
+  assert.equal(r.headers.get('access-control-allow-headers'), 'Content-Type, Accept, mcp-session-id, mcp-protocol-version, mcp-method, mcp-name');
 
   r = await rpc(SECRET(), LIST, { accept: 'text/html' });
   assert.equal(r.status, 406);

@@ -4,7 +4,7 @@ Every tool the server offers, with its parameters and what it returns. Look here
 
 All paths are absolute paths inside the vault. A path outside the vault is refused with the code `PATH_OUTSIDE_VAULT`, and nothing is read or written. That covers a path that simply points elsewhere, one that climbs out with `..`, one that reaches a sibling directory whose name merely starts with the vault's own, and one that resolves out through a symlink — including the case where the symlink leads back inside, which is checked at the destination of every write. An error comes back as a normal tool result with `isError: true` and text starting with `Error: `.
 
-Every tool has a title and MCP annotations. `write_file`, `edit_file`, `move_file` and `trash_file` are marked destructive; `create_directory` changes the vault but is not destructive; every other tool is marked read-only. A client can use these marks to decide whether to ask for confirmation before running a tool.
+Every tool has a title and MCP annotations. `write_file`, `edit_file`, `move_file`, `copy_file` and `trash_file` are marked destructive; `create_directory` changes the vault but is not destructive; every other tool is marked read-only. A client can use these marks to decide whether to ask for confirmation before running a tool.
 
 ## Reading
 
@@ -37,17 +37,13 @@ A document (PDF, Word, Excel, PowerPoint, OpenDocument, EPUB, MSG, text in UTF-1
 
 `head`, `tail` and `offset`/`limit` count these lines. Without them, a long document returns its first 100 KB of text and says to use `offset`/`limit` for the rest. HTML, RTF, EML and FB2 are text on disk and read raw, as a text file; `extract: true` gives their text as a document. Images, archives and other binary files are refused with the reason. Details: [documents](documents.md).
 
-### `read_file`
-
-Deprecated alias of `read_text_file`, same parameters except `extract`.
-
 ### `read_multiple_files`
 
 `paths` (array of strings). Returns each file whole, under a `=== <path> ===` header; documents as numbered lines, as `read_text_file`. A file that fails gets an `ERROR:` line instead of stopping the batch. Files inside a trash directory are skipped. There is no size cap, so read large files one at a time.
 
 ### `read_media_file`
 
-`path`. Images (`.jpg`, `.jpeg`, `.png`, `.gif`, `.webp`, `.bmp`, `.svg`) and audio (`.mp3`, `.wav`, `.ogg`, `.flac`) come back base64-encoded with their MIME type. A PDF returns one page as JPEG, preceded by `Page N of M`; choose the page with a `#N` suffix on the path (`/vault/docs/manual.pdf#3`), default 1.
+`path`. Images (`.jpg`, `.jpeg`, `.png`, `.gif`, `.webp`, `.bmp`, `.svg`) and audio (`.mp3`, `.wav`, `.ogg`, `.flac`) come back base64-encoded with their MIME type. A PDF is refused with a pointer to `read_pdf_page` (one page as an image) and `read_pdf_text`.
 
 ### `read_pdf_text`
 
@@ -132,9 +128,13 @@ The reply carries the new `rev`. The semantics of line edits are in [search-and-
 
 `source`, `destination` (required), `rev`. Moves or renames a file or directory. Taking a file out of a zone with `overwrite: "rev"` requires its current `rev`; a directory cannot be taken out of a zone whose `overwrite` is not `free`. Moving into a trash directory by hand is refused: use `trash_file`. Moving a file out of the trash restores it.
 
+### `copy_file`
+
+`source`, `destination` (required), `rev`. Copies a file to a new path; the source stays. The destination follows the rules of `write_file`: missing parents are created, an existing file is overwritten only where the zone allows it (with its current `rev` under `overwrite: "rev"`, never under `overwrite: "never"`), a read-only zone, a trash directory, a marker name and an existing document are refused. Directories are not copied. Returns the `rev` of the copy.
+
 ### `trash_file`
 
-`path` (required), `rev`. Moves a file into the trash of its zone, keeping its path relative to the directory that owns the trash and adding an arrival timestamp to the name. Fails if the zone has no trash configured, or if the path is a directory. In a zone with `overwrite: "rev"` the current `rev` is required. See [policies.md](policies.md#trash).
+`path` (required), `rev`. Moves a file into the trash of its zone, keeping its path relative to the directory that owns the trash and adding an arrival timestamp to the name. Fails if the zone has no trash configured, or if the path is a directory: a directory is not discarded as a unit, its files are trashed one by one. In a zone with `overwrite: "rev"` the current `rev` is required. See [policies.md](policies.md#trash).
 
 ## Listing
 
@@ -191,7 +191,7 @@ Response fields, refusal codes and the handling of WAL databases are in [sqlite.
 |---|---|
 | `grep_files` / `search_files` | contents by regex / names by substring |
 | `read_text_file` / `read_multiple_files` | one file, optionally a range with `rev` / several whole files, no `rev` |
-| `read_pdf_text` / `read_pdf_page` / `read_media_file` | numbered text / one page as JPEG / one page as JPEG chosen by `#N`, plus images and audio |
+| `read_pdf_text` / `read_pdf_page` / `read_media_file` | numbered text / one page as JPEG / images and audio |
 | `write_file` / `edit_file` | whole content / part of a file |
-| `move_file` / `trash_file` | relocate or restore / discard into the zone's trash |
+| `move_file` / `copy_file` / `trash_file` | relocate or restore / duplicate, the source stays / discard into the zone's trash |
 | `list_directory` / `directory_tree` | one level / two levels |

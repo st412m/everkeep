@@ -1,10 +1,10 @@
 # Standalone image: Everkeep over Streamable HTTP. Published as
 # ghcr.io/st412m/everkeep by .github/workflows/image.yml on a version tag; to
 # build it yourself:
-#   docker build -t everkeep:1.0.0 .
+#   docker build -t everkeep:1.1.0 .
 # The server comes from npm, pinned below. To build from an `npm pack` tarball
 # placed next to this file instead (before a release, or a local change):
-#   docker build --build-arg EVERKEEP_TARBALL=everkeep-1.0.0.tgz -t everkeep:1.0.0 .
+#   docker build --build-arg EVERKEEP_TARBALL=everkeep-1.1.0.tgz -t everkeep:1.1.0 .
 FROM node:22.23.3-alpine3.24
 
 # A tarball in the build context, by file name; empty = everkeep from npm.
@@ -18,7 +18,7 @@ ARG EVERKEEP_TARBALL=
 # through sh: a tarball packed on Windows has no exec bit.
 RUN --mount=type=bind,target=/ctx \
     apk add --no-cache poppler-utils sqlite \
-    && SRC=everkeep@1.0.0 \
+    && SRC=everkeep@1.1.0 \
     && if [ -n "$EVERKEEP_TARBALL" ]; then SRC="/ctx/$EVERKEEP_TARBALL"; fi \
     && mkdir -p /opt/everkeep \
     && cd /opt/everkeep \

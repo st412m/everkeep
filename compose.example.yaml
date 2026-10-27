@@ -12,7 +12,7 @@
 # (git-ignored) and uncomment env_file below. No secrets in this file.
 services:
   everkeep:
-    image: ghcr.io/st412m/everkeep:1.0.0
+    image: ghcr.io/st412m/everkeep:1.1.0
     # Or build the image from this repository instead of pulling it:
     # build: .
     restart: unless-stopped

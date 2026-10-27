@@ -21,7 +21,12 @@ policy-write.js   the only writer of .vault-policy
 
 Over HTTP the server speaks JSON-RPC on `POST /mcp` and answers with `Content-Type: application/json`, never an event stream. `GET` gets 405, an `Accept` header that is empty or lists none of `application/json`, `text/event-stream`, `application/*`, `*/*` gets 406 (parameters such as q-values and letter case are ignored). The server sends no notifications, and `tools/list` is static (`listChanged: false`).
 
-Supported protocol versions are `2025-06-18`, `2025-03-26` and `2024-11-05`. `initialize` answers with the client's version if it is one of these, otherwise with `2025-06-18`. Every other request may carry an `MCP-Protocol-Version` header: without it the request is served, with a supported version it is served, and with any other value, an empty one, or the header sent twice it gets 400 with JSON-RPC error `-32600`. A request body element that is not a JSON object gets `-32600` as well.
+Two protocol generations are served side by side, on HTTP and on stdio. A notification (a request without `id`) is never answered; over HTTP it gets 202.
+
+- **2026-07-28.** No `initialize`: every request carries `io.modelcontextprotocol/protocolVersion` and `io.modelcontextprotocol/clientCapabilities` in `params._meta`, and every result carries `resultType: "complete"` and `io.modelcontextprotocol/serverInfo` in its own `_meta`. Methods: `server/discover`, `tools/list`, `tools/call`; `server/discover` and `tools/list` give `ttlMs: 0` and `cacheScope: "private"`. A missing version or capabilities gets `-32602`, a version other than `2026-07-28` gets `-32022` with the supported versions, any other method `-32601` (`ping`, `initialize` and the `resources`/`prompts` lists included). Over HTTP the request must carry `MCP-Protocol-Version` equal to the `_meta` version, `Mcp-Method` equal to `method`, and for `tools/call` `Mcp-Name` equal to `params.name` (plain or `=?base64?…?=`), each exactly once; otherwise 400 with `-32020`. Status: 200 for a result, 404 for `-32601`, 400 for every other error. One request per POST: a batch that holds a 2026-07-28 request gets 400 with `-32600`.
+- **2025-11-25, 2025-06-18, 2025-03-26, 2024-11-05.** `initialize` answers with the client's version if it is one of these, otherwise with `2025-11-25`. Other requests may carry an `MCP-Protocol-Version` header with one of these versions, or none. A request is served as 2026-07-28 when its `_meta` names a version, when it is `server/discover`, or when its header is anything but one of these versions (an `initialize` stays on this side whatever the header says).
+
+A request body element that is not a JSON object gets `-32600`.
 
 ## Modules
 

@@ -107,7 +107,7 @@ With `--host 0.0.0.0` (or another non-local address) it answers on the network, 
 The start line on stderr shows what is in force:
 
 ```text
-everkeep 1.0.0 on 127.0.0.1:3100, vault /home/me/notes, policies off, doclines 0.1.0, allowed hosts notes.example.ts.net
+everkeep 1.1.0 on 127.0.0.1:3100, vault /home/me/notes, policies off, doclines 0.1.1, allowed hosts notes.example.ts.net
 ```
 
 ## Request log
@@ -127,7 +127,7 @@ everkeep check-config --vault /home/me/notes
 ```
 
 ```text
-everkeep 1.0.0
+everkeep 1.1.0
 config file: none (looked in /home/me/.config/everkeep/config.json)
 vault: /home/me/notes (flag --vault) — directory
 vault case: case-sensitive vault
@@ -142,7 +142,7 @@ toolchain:
   pdfinfo: 25.12.0
   pdftoppm: 25.12.0
   sqlite3: 3.53.4
-  doclines: 0.1.0
+  doclines: 0.1.1
 
 ok
 ```

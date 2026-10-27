@@ -6,7 +6,7 @@ Symptoms and what they mean: a client that shows no tools or old tools, HTTP sta
 
 Go through these in order:
 
-1. **Is the server running?** In Docker: `docker ps` lists `everkeep`; `docker logs everkeep` shows its start line, `everkeep 1.0.0 on 0.0.0.0:3100, vault /vault, …`.
+1. **Is the server running?** In Docker: `docker ps` lists `everkeep`; `docker logs everkeep` shows its start line, `everkeep 1.1.0 on 0.0.0.0:3100, vault /vault, …`.
 2. **Is the token current?** `everkeep token` (in Docker: `docker exec everkeep everkeep token`) prints the path and the header in force. After `everkeep token --new` the server must be restarted, and every client updated.
 3. **Does the address answer?** Run the `curl` check below against the same URL the client uses. For claude.ai, run it from another network (a phone hotspot), because claude.ai comes from the internet.
 4. **Do requests arrive?** Switch on the [request log](#seeing-the-requests) and connect again.
@@ -29,7 +29,8 @@ The quick test for a stale schema is `write_file`: if it has no `rev` parameter,
 | 403 | the server listens on `127.0.0.1` and the `Host` or `Origin` header is neither local nor in `allowed_hosts`; see [remote access](remote-access.md#without-docker) |
 | 405 | a method other than `POST` (for example `GET`); the response carries `Allow: POST, OPTIONS` |
 | 406 | the `Accept` header is missing, empty, or lists none of `application/json`, `text/event-stream`, `application/*`, `*/*` |
-| 400 | the body is not valid JSON, or the `MCP-Protocol-Version` header names a version the server does not support (the body lists the supported ones) |
+| 400 | the body is not valid JSON; the protocol version is not supported (the body lists the supported ones); a 2026-07-28 request lacks `_meta` fields, or its `MCP-Protocol-Version`, `Mcp-Method` or `Mcp-Name` header is missing or disagrees with the body |
+| 404 with a JSON body | a 2026-07-28 request names a method the server does not have (`-32601`) |
 | 202 | a notification, which has no reply |
 
 A successful call returns 200 with `Content-Type: application/json`, not an event stream.

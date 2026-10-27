@@ -2,8 +2,7 @@ name: image
 
 # Builds and publishes ghcr.io/st412m/everkeep for a version tag (v1.2.3):
 # tags 1.2.3, 1.2 and latest, for linux/amd64 and linux/arm64. The image
-# installs everkeep from npm (the default build of the Dockerfile), so the tag
-# is pushed after `npm publish`.
+# installs everkeep from npm (the default build of the Dockerfile).
 on:
   push:
     tags:

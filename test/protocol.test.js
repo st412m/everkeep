@@ -16,7 +16,7 @@ test.after(() => fs.rmSync(V, { recursive: true, force: true }));
 // Generated per run: a fixture, not a credential.
 const TOKEN = crypto.randomBytes(32).toString('hex');
 
-const UNSUPPORTED = 'Supported: 2025-06-18, 2025-03-26, 2024-11-05';
+const UNSUPPORTED = 'Supported: 2025-11-25, 2025-06-18, 2025-03-26, 2024-11-05';
 
 async function initialize(protocolVersion) {
   const params = protocolVersion === undefined ? {} : { protocolVersion };
@@ -25,17 +25,20 @@ async function initialize(protocolVersion) {
 }
 
 test('supported versions', () => {
-  assert.deepEqual(S.SUPPORTED_PROTOCOL_VERSIONS, ['2025-06-18', '2025-03-26', '2024-11-05']);
+  assert.deepEqual(S.LEGACY_PROTOCOL_VERSIONS, ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05']);
+  assert.deepEqual(S.MODERN_PROTOCOL_VERSIONS, ['2026-07-28']);
 });
 
-test('initialize echoes a supported version, otherwise answers 2025-06-18', async () => {
+test('initialize echoes a supported version, otherwise answers 2025-11-25', async () => {
+  assert.equal(await initialize('2025-11-25'), '2025-11-25');
   assert.equal(await initialize('2025-06-18'), '2025-06-18');
   assert.equal(await initialize('2025-03-26'), '2025-03-26');
   assert.equal(await initialize('2024-11-05'), '2024-11-05');
-  assert.equal(await initialize('2099-01-01'), '2025-06-18');
-  assert.equal(await initialize(undefined), '2025-06-18');
+  assert.equal(await initialize('2099-01-01'), '2025-11-25');
+  assert.equal(await initialize('2026-07-28'), '2025-11-25');
+  assert.equal(await initialize(undefined), '2025-11-25');
   const r = await S.handleMcpRequest({ jsonrpc: '2.0', id: 1, method: 'initialize' });
-  assert.equal(r.result.protocolVersion, '2025-06-18');
+  assert.equal(r.result.protocolVersion, '2025-11-25');
   assert.deepEqual(r.result.capabilities, { tools: { listChanged: false } });
 });
 
@@ -45,7 +48,7 @@ const INIT = { jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVe
 test('MCP-Protocol-Version: absent or supported passes', () => {
   assert.equal(H.protocolHeaderError([], LIST), null);
   assert.equal(H.protocolHeaderError(['Accept', 'application/json'], LIST), null);
-  for (const v of S.SUPPORTED_PROTOCOL_VERSIONS) {
+  for (const v of S.LEGACY_PROTOCOL_VERSIONS) {
     assert.equal(H.protocolHeaderError(['MCP-Protocol-Version', v], LIST), null, v);
     assert.equal(H.protocolHeaderError(['mcp-protocol-version', v], LIST), null, v);
   }
@@ -160,14 +163,16 @@ test('HTTP: Accept', async () => {
 test('HTTP: MCP-Protocol-Version', async () => {
   await withServer(async url => {
     assert.equal((await post(url, LIST)).status, 200);
+    assert.equal((await post(url, LIST, { 'MCP-Protocol-Version': '2025-11-25' })).status, 200);
     assert.equal((await post(url, LIST, { 'MCP-Protocol-Version': '2025-06-18' })).status, 200);
     assert.equal((await post(url, LIST, { 'MCP-Protocol-Version': '2024-11-05' })).status, 200);
 
+    // Any other version is served as 2026-07-28, which needs _meta in the body.
     const r = await post(url, LIST, { 'MCP-Protocol-Version': '2099-01-01' });
     assert.equal(r.status, 400);
     assert.equal(r.headers.get('content-type'), 'application/json');
     assert.equal(await r.text(),
-      '{"jsonrpc":"2.0","id":null,"error":{"code":-32600,"message":"Unsupported MCP-Protocol-Version: 2099-01-01. Supported: 2025-06-18, 2025-03-26, 2024-11-05"}}');
+      '{"jsonrpc":"2.0","id":2,"error":{"code":-32602,"message":"Invalid params: _meta \\"io.modelcontextprotocol/protocolVersion\\" is required"}}');
 
     const i = await post(url, INIT, { 'MCP-Protocol-Version': '2099-01-01' });
     assert.equal(i.status, 200);

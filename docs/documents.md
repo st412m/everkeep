@@ -116,13 +116,13 @@ Refused documents (scans, images) count as `binary skipped` in the footer.
 
 ## Documents are read-only
 
-`write_file` over an existing document and `edit_file` on one are refused:
+`write_file` or `copy_file` over an existing document and `edit_file` on one are refused:
 
 ```text
 Error: Refused — read-only: document formats are not edited by this server (/vault/docs/text.docx is Word document (.docx)). Nothing was written.
 ```
 
-A new file with a document extension can be written: it is just text. `move_file` and `trash_file` work on documents as on any file. `get_file_info` reports the detected type in `format`, for example `"Excel workbook (.xlsx)"`.
+A new file with a document extension can be written: it is just text. `move_file` and `trash_file` work on documents as on any file, and `copy_file` copies one to a new path. `get_file_info` reports the detected type in `format`, for example `"Excel workbook (.xlsx)"`.
 
 ## Limits
 

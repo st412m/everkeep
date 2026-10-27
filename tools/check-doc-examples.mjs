@@ -128,7 +128,7 @@ const EXTERNAL = new Set([
   'CO-ROUTINE', 'SCAN (subquery-N)',
   // the Home Assistant app (its options and files are checked in the app source when given)
   'ha-filesystem-mcp', 'vault_path', 'media:rw', 'share:rw', 'ingress_port', '/data/doc-cache', '/data', '/vault', 'doc-cache', 'token',
-  'raw/ha', 'everkeep 1.0.0 on 0.0.0.0:3100, vault /media/VAULT, …', 'everkeep 1.0.0 on 0.0.0.0:3100, vault /vault, …',
+  'raw/ha', 'everkeep 1.1.0 on 0.0.0.0:3100, vault /media/VAULT, …', 'everkeep 1.1.0 on 0.0.0.0:3100, vault /vault, …',
   // other clients' configuration
   '~/.cursor/mcp.json', '.cursor/mcp.json', 'claude_desktop_config.json', 'mcpServers', '%APPDATA%\\Claude\\',
   '~/Library/Application Support/Claude/', '%APPDATA%\\Claude\\logs', '~/Library/Logs/Claude', 'mcp-server-everkeep.log',

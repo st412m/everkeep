@@ -154,20 +154,79 @@ function countBytes(res) {
 // Streamable HTTP
 // ---------------------------------------------------------------------------
 
-// MCP-Protocol-Version header check. Returns null when the request may
-// proceed, or the JSON-RPC error body for a 400. No header passes; initialize
-// (alone or inside a batch) is never checked, its version is not agreed yet.
+// Every value of one request header, by case-insensitive name.
+function headerValues(rawHeaders, name) {
+  const values = [];
+  for (let i = 0; i + 1 < rawHeaders.length; i += 2) {
+    if (String(rawHeaders[i]).toLowerCase() === name) values.push(String(rawHeaders[i + 1]));
+  }
+  return values;
+}
+
+// MCP-Protocol-Version header check of a legacy request (2025-11-25 and
+// earlier). Returns null when the request may proceed, or the JSON-RPC error
+// body for a 400. No header passes; initialize (alone or inside a batch) is
+// never checked, its version is not agreed yet.
 function protocolHeaderError(rawHeaders, body) {
   const items = Array.isArray(body) ? body : [body];
   if (items.some(r => r && typeof r === 'object' && r.method === 'initialize')) return null;
-  const values = [];
-  for (let i = 0; i + 1 < rawHeaders.length; i += 2) {
-    if (String(rawHeaders[i]).toLowerCase() === 'mcp-protocol-version') values.push(String(rawHeaders[i + 1]));
-  }
+  const values = headerValues(rawHeaders, 'mcp-protocol-version');
   if (!values.length) return null;
-  if (values.length === 1 && S.SUPPORTED_PROTOCOL_VERSIONS.includes(values[0])) return null;
+  if (values.length === 1 && S.LEGACY_PROTOCOL_VERSIONS.includes(values[0])) return null;
   return { jsonrpc: '2.0', id: null, error: { code: -32600,
-    message: `Unsupported MCP-Protocol-Version: ${values.join(', ').slice(0, 40)}. Supported: ${S.SUPPORTED_PROTOCOL_VERSIONS.join(', ')}` } };
+    message: `Unsupported MCP-Protocol-Version: ${values.join(', ').slice(0, 40)}. Supported: ${S.LEGACY_PROTOCOL_VERSIONS.join(', ')}` } };
+}
+
+// A single request is served as 2026-07-28 when its _meta names a version, when
+// it is server/discover, or when its MCP-Protocol-Version header is anything but
+// one legacy version. A legacy initialize stays legacy whatever the header says.
+function isModernHttpRequest(rawHeaders, body) {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return false;
+  if (S.isModernRequest(body)) return true;
+  if (body.method === 'initialize') return false;
+  const values = headerValues(rawHeaders, 'mcp-protocol-version');
+  return values.length > 0 && !(values.length === 1 && S.LEGACY_PROTOCOL_VERSIONS.includes(values[0]));
+}
+
+// Mcp-Name may carry its value as =?base64?…?= (UTF-8). Returns the decoded
+// value, or null when the sentinel form is malformed.
+function decodeHeaderValue(v) {
+  const m = /^=\?base64\?([A-Za-z0-9+/]*={0,2})\?=$/.exec(v);
+  if (m) {
+    const bytes = Buffer.from(m[1], 'base64');
+    return bytes.toString('base64') === m[1] ? bytes.toString('utf8') : null;
+  }
+  return v.startsWith('=?base64?') ? null : v;
+}
+
+function clipValue(v) {
+  const s = String(v);
+  return s.length > 60 ? s.slice(0, 60) + '…' : s;
+}
+
+// One header against its body value: null, or the problem.
+function headerProblem(rawHeaders, name, expected, label, decode = false) {
+  const values = headerValues(rawHeaders, name.toLowerCase());
+  if (!values.length) return `the required ${name} header is missing`;
+  if (values.length > 1) return `${name} appears ${values.length} times`;
+  const got = decode ? decodeHeaderValue(values[0]) : values[0];
+  if (got === null) return `${name} has a malformed base64 value`;
+  if (got !== expected) return `${name} header value '${clipValue(got)}' does not match body ${label} '${clipValue(expected)}'`;
+  return null;
+}
+
+// 2026-07-28 request headers against the body: MCP-Protocol-Version equal to
+// the _meta version, Mcp-Method equal to method, and for tools/call Mcp-Name
+// equal to params.name. Each must appear exactly once. Returns null, or the
+// -32020 (HeaderMismatch) error body for a 400. Called only when the body names
+// a version.
+function modernHeaderError(rawHeaders, body) {
+  const problem =
+    headerProblem(rawHeaders, 'MCP-Protocol-Version', S.metaVersion(body), 'protocol version')
+    || headerProblem(rawHeaders, 'Mcp-Method', body.method, 'method')
+    || (body.method === 'tools/call' ? headerProblem(rawHeaders, 'Mcp-Name', body.params && body.params.name, 'params.name', true) : null);
+  if (!problem) return null;
+  return { jsonrpc: '2.0', id: body.id === undefined ? null : body.id, error: { code: -32020, message: 'Header mismatch: ' + problem } };
 }
 
 // Accept is split on commas, parameters (;q=...) dropped, case ignored.
@@ -184,7 +243,7 @@ function acceptsMcp(header) {
 function transport(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, DELETE');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept, mcp-session-id, mcp-protocol-version');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept, mcp-session-id, mcp-protocol-version, mcp-method, mcp-name');
 
   if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
 
@@ -217,6 +276,13 @@ async function answer(req, res, chunks) {
   try { body = JSON.parse(Buffer.concat(chunks).toString('utf8')); }
   catch { res.writeHead(400); res.end('Bad JSON'); return; }
 
+  if (isModernHttpRequest(req.rawHeaders, body)) return answerModern(req, res, body);
+  if (Array.isArray(body) && body.some(r => S.isModernRequest(r))) {
+    res.writeHead(400, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ jsonrpc: '2.0', id: null, error: { code: -32600, message: 'Invalid Request: protocol 2026-07-28 takes one request per POST, not a batch' } }));
+    return;
+  }
+
   const versionError = protocolHeaderError(req.rawHeaders, body);
   if (versionError) {
     res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -238,6 +304,19 @@ async function answer(req, res, chunks) {
   // affected by SSE buffering in tunnels.
   res.writeHead(200, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify(result));
+}
+
+// One 2026-07-28 request. Status by outcome: 200 result, 202 notification,
+// 404 unknown method (-32601), 400 any other error.
+async function answerModern(req, res, body) {
+  let resp = null;
+  const version = S.metaVersion(body);
+  if (typeof version === 'string' && version !== '') resp = modernHeaderError(req.rawHeaders, body);
+  if (!resp) resp = await S.handleModernRequest(body);
+  if (resp === null) { res.writeHead(202); res.end(); return; }
+  const status = !resp.error ? 200 : resp.error.code === -32601 ? 404 : 400;
+  res.writeHead(status, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify(resp));
 }
 
 // ---------------------------------------------------------------------------
@@ -309,6 +388,6 @@ function startHttp({ port, host = DEFAULT_HOST, token, allowedHosts = [], logReq
 module.exports = {
   DEFAULT_HOST, MIN_TOKEN_LENGTH, TokenError,
   isLocalBind, validateToken, sameSecret, authorize, allowedHostnames, hostRefusal, originRefusal,
-  maskPath, protocolHeaderError, acceptsMcp,
+  maskPath, protocolHeaderError, modernHeaderError, isModernHttpRequest, decodeHeaderValue, acceptsMcp,
   createHttpHandler, startHttp, bindNote,
 };
