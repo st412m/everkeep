@@ -103,6 +103,18 @@ function caseNote(probe) {
   return 'case sensitivity: unknown (no entry to probe)';
 }
 
+// Names Windows refuses or rewrites, checked on Windows before any file system
+// call: a colon (an alternate data stream), a trailing space or period (Win32
+// strips it, so `a.md.` is `a.md`), a device name with or without an extension,
+// in any case. Takes one path segment; returns the reason, or null.
+const WIN_DEVICE = /^(CON|PRN|AUX|NUL|COM[1-9¹²³]|LPT[1-9¹²³])$/i;
+function windowsNameProblem(name) {
+  if (name.includes(':')) return 'a colon names an alternate data stream';
+  if (/[ .]$/.test(name)) return 'Windows drops a trailing space or period';
+  if (WIN_DEVICE.test(name.split('.')[0])) return 'a reserved device name';
+  return null;
+}
+
 function isSafePath(x) {
   return issued.has(x);
 }
@@ -155,7 +167,7 @@ function canonical(p) {
 
 // One resolver per process and per root: server.js and the grep worker over
 // ALLOWED_DIR, policy-page.js over the same vault.
-function createResolver(rootPath) {
+function createResolver(rootPath, { windows = process.platform === 'win32' } = {}) {
   const ROOT = path.resolve(rootPath);
 
   // Real path of the vault, resolved once. On HAOS the vault root is reached
@@ -186,8 +198,15 @@ function createResolver(rootPath) {
   // existing ancestor is resolved instead.
   function resolveSafe(p) {
     if (typeof p !== 'string' || !p) throw new Error('path must be a non-empty string');
+    if (windows && /^[\\/]{2}[?.][\\/]/.test(p)) throw new Error(`PATH_WINDOWS_NAME: ${p} — the \\\\?\\ and \\\\.\\ prefixes are not accepted`);
     const resolved = path.resolve(p);
     if (!inside(resolved, ROOT)) throw outside(p, resolved);
+    if (windows) {
+      for (const seg of path.relative(ROOT, resolved).split(path.sep)) {
+        const why = seg && windowsNameProblem(seg);
+        if (why) throw new Error(`PATH_WINDOWS_NAME: ${p} — "${seg}": ${why}`);
+      }
+    }
     let probe = resolved;
     for (;;) {
       try {
@@ -239,5 +258,5 @@ function createResolver(rootPath) {
 
 module.exports = {
   createResolver, isSafePath, pathOf, inside, child, parent, canonical,
-  sameName, samePath, probeCase, caseNote,
+  sameName, samePath, probeCase, caseNote, windowsNameProblem,
 };
