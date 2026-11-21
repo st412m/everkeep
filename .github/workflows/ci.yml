@@ -59,6 +59,18 @@ jobs:
         run: |
           mkdir -p "$RUNNER_TEMP/ci-mount"
           echo "EVERKEEP_TEST_CI_MOUNT=$RUNNER_TEMP/ci-mount" >> "$GITHUB_ENV"
+      # Temp folders on macOS go to a case-sensitive APFS volume, as on Linux:
+      # the tests that assume a case-sensitive temp folder run there, the
+      # case-insensitive ones in the folder above.
+      - name: Case-sensitive temp folder
+        if: runner.os == 'macOS'
+        run: |
+          hdiutil create -size 2g -fs "Case-sensitive APFS" -volname everkeep-cs -type SPARSE "$RUNNER_TEMP/cs.sparseimage"
+          hdiutil attach "$RUNNER_TEMP/cs.sparseimage" -mountpoint "$RUNNER_TEMP/cs"
+          touch "$RUNNER_TEMP/cs/probe"
+          if [ -e "$RUNNER_TEMP/cs/PROBE" ]; then echo "the volume ignores case"; exit 1; fi
+          rm "$RUNNER_TEMP/cs/probe"
+          echo "TMPDIR=$RUNNER_TEMP/cs" >> "$GITHUB_ENV"
       # The glob is quoted: node expands it itself.
       - name: Tests
         run: node --test "test/*.test.js"
