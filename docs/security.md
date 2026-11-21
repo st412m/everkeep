@@ -55,7 +55,7 @@ In the Home Assistant app the page runs in the same process on its own port, rea
 
 ## What each part may do
 
-- `grep_files` runs in a child process that is killed after 10 seconds, so a runaway regular expression cannot hang the server.
+- `grep_files` runs in a worker thread that is stopped after 10 seconds, so a runaway regular expression cannot hang the server.
 - Documents are extracted in worker threads with a timeout and a 1 GB memory cap, one at a time.
 - SQLite runs as `sqlite3 -readonly -safe`: no writes, and `ATTACH` and the other ways out of the vault through SQL are disabled; every call has a 256 MiB memory limit.
 - External programs (`pdfinfo`, `pdftoppm`, `sqlite3`) are started with an argument list, never through a shell.

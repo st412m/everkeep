@@ -17,7 +17,7 @@ policy-write.js   the only writer of .vault-policy
     ↑ everkeep policy (cli.js), the Vault policies page (policy-page.js, Home Assistant only)
 ```
 
-`everkeep serve` starts the HTTP listener, the policy page (on the same port in mode `token`, on its own port in mode `ha-ingress`), and the trash auto-purge timer, all in one Node.js process. `everkeep` with no command does the same on stdio, without a token and without a page. `grep_files` forks a copy of `server.js` for each search.
+`everkeep serve` starts the HTTP listener, the policy page (on the same port in mode `token`, on its own port in mode `ha-ingress`), and the trash auto-purge timer, all in one Node.js process. `everkeep` with no command does the same on stdio, without a token and without a page. `grep_files` runs `server.js` in a worker thread for each search.
 
 Over HTTP the server speaks JSON-RPC on `POST /mcp` and answers with `Content-Type: application/json`, never an event stream. `GET` gets 405, an `Accept` header that is empty or lists none of `application/json`, `text/event-stream`, `application/*`, `*/*` gets 406 (parameters such as q-values and letter case are ignored). The server sends no notifications, and `tools/list` is static (`listChanged: false`).
 
@@ -88,9 +88,9 @@ Alpine packages cannot be pinned to an exact `-rN` release: old releases are rem
 
 pdfjs, inside doclines, has an optional native dependency `@napi-rs/canvas` that crashes CPUs without AVX. Everkeep does not need it. Install with `--omit=optional`; `npm install -g` ignores that flag, which is why the images install into `/opt/everkeep` and link the command.
 
-### The forked grep worker
+### The grep worker thread
 
-`grep_files` runs in a forked copy of `server.js` (`--grep-worker <vault>`), which is killed after 10 seconds. Node cannot interrupt a running regex, so the child process is the only reliable stop. Keep `execArgv: []` in the `fork()` call; the child must not inherit the parent's Node flags. Documents are searched by a second worker in the extracted text read from the cache.
+`grep_files` runs `server.js` in a worker thread (`workerData.grepWorker`), which is terminated after 10 seconds. Node cannot interrupt a running regex on the main thread; `worker.terminate()` stops it. Not a child process: Claude Desktop's built-in Node refuses to spawn its own executable. The worker's stdout and stderr are not piped to the process's own, which carries the protocol in stdio mode. Documents are searched by a second worker in the extracted text read from the cache.
 
 ### Markers are written in one place
 

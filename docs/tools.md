@@ -92,7 +92,7 @@ Returns, per file, a header line with path, `rev` and line count, then the match
 
 The footer counts matches, files and scanned bytes. The output format and the full workflow are in [search-and-edit.md](search-and-edit.md); documents in [documents.md](documents.md#searching-documents).
 
-Skipped: symlinks, binary files (a NUL byte in the first 4 KB) that are not documents, files over 20 MB, `.git`, `node_modules`, `.svn`, `.hg`, and trash directories. The answer stops at `max_results` or at about 60 KB, whichever comes first, and then ends with a `⚠ TRUNCATED` line. The search runs in a child process that is killed after 10 seconds.
+Skipped: symlinks, binary files (a NUL byte in the first 4 KB) that are not documents, files over 20 MB, `.git`, `node_modules`, `.svn`, `.hg`, and trash directories. The answer stops at `max_results` or at about 60 KB, whichever comes first, and then ends with a `⚠ TRUNCATED` line. The search runs in a worker thread that is stopped after 10 seconds.
 
 ### `search_files`
 

@@ -95,7 +95,7 @@ const EXTERNAL = new Set([
   'node --test "test/*.test.js"', 'node:test', 'node tools/check-release.mjs',
   'test/*.test.js', 'test/casefold.test.js', 'tools/check-doc-examples.mjs', 'tools/scan-secrets.mjs', 'tools/check-release.mjs',
   '.github/workflows/ci.yml', '.github/workflows/image.yml',
-  'npm pack', 'node --check', 'fork()', 'execArgv: []', 'execFile', 'callTool()', 'resolveSafe()', 'guardWrite()', 'guardOverwrite()',
+  'npm pack', 'node --check', 'execFile', 'callTool()', 'resolveSafe()', 'guardWrite()', 'guardOverwrite()',
   'sameName()', 'samePath()', 'meta(title, h)', "{ type: 'text', text }", 'image', 'audio', 'TOOLS', 'description', 'inputSchema', 'name',
   'case', 'isError: true', 'Error: ', 'listChanged: false', 'tools/list', '===', 'MIN_NODE_MAJOR', 'MIN_NODE_MINOR',
   'EXPECT_POPPLER_MAJOR', 'EXPECT_SQLITE_MAJOR', '`MIN_NODE_MAJOR`.`MIN_NODE_MINOR`', 'src/version.js', 'package.json', 'server.json',

@@ -4,7 +4,8 @@
  * vault. Transports (http.js, stdio.js) hand requests to handleMcpRequest().
  */
 
-const { execFile, fork } = require('child_process');
+const { execFile } = require('child_process');
+const { Worker, isMainThread, parentPort, workerData } = require('worker_threads');
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
@@ -15,10 +16,11 @@ const SP = require('./safepath');
 const DOCS = require('./documents');
 const { VERSION } = require('./version');
 
-// grep_files runs in a forked copy of this file (argv: --grep-worker <vault>):
-// a running regex cannot be interrupted in node, a child process can be
-// killed. See grepSpawn().
-const GREP_WORKER = require.main === module && process.argv[2] === '--grep-worker';
+// grep_files runs this file in a worker thread (workerData.grepWorker): a
+// running regex cannot be interrupted on the main thread, a worker can be
+// terminated. Not a child process: Claude Desktop's built-in Node refuses to
+// spawn its own executable. See grepSpawn().
+const GREP_WORKER = !isMainThread && workerData != null && workerData.grepWorker === true;
 
 // One vault per process, set once by init().
 let ALLOWED_DIR = null;
@@ -383,7 +385,7 @@ function dirTree(p, memo, policy, level, hidden) {
 // grep_files
 // ---------------------------------------------------------------------------
 
-const GREP_TIMEOUT_MS = 10000;      // hard wall-clock cap, then SIGKILL
+let GREP_TIMEOUT_MS = 10000;        // hard wall-clock cap, then the worker is terminated
 const GREP_MAX_FILE = 20 * 1024 * 1024;
 const GREP_MAX_BYTES = 60000;       // ceiling on the rendered answer itself
 const GREP_SKIP_DIRS = new Set(['.git', 'node_modules', '.svn', '.hg']);
@@ -608,31 +610,34 @@ function grepRun(job) {
 
 function grepSpawn(job, timeoutMs = GREP_TIMEOUT_MS) {
   return new Promise((resolve, reject) => {
-    let child;
+    let worker;
     try {
-      // execArgv: [] — fork() inherits the parent's node flags, and a parent
-      // started with `node -e` would run that script again in the child.
-      child = fork(__filename, ['--grep-worker', ALLOWED_DIR], {
-        execArgv: [], stdio: ['ignore', 'ignore', 'pipe', 'ipc']
+      // stdout/stderr: true — the worker's output is not piped into the
+      // process's own stdout, which carries the protocol in stdio mode.
+      worker = new Worker(__filename, {
+        workerData: { grepWorker: true, vault: ALLOWED_DIR },
+        stdout: true, stderr: true,
       });
     } catch (e) { reject(e); return; }
+    worker.stdout.resume();
+    worker.stderr.resume();
     let settled = false;
     const finish = (fn, arg) => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
-      try { child.kill('SIGKILL'); } catch {}
+      worker.terminate().catch(() => {});
       fn(arg);
     };
     const timer = setTimeout(() => finish(reject, new Error(
       `grep timed out after ${GREP_TIMEOUT_MS / 1000}s and was killed. The pattern is probably catastrophically backtracking (e.g. nested quantifiers like (a+)+) or the tree is too large — simplify the pattern, or narrow path/include.`
     )), timeoutMs);
-    child.on('message', msg => msg && msg.error
+    worker.on('message', msg => msg && msg.error
       ? finish(reject, new Error(msg.error))
       : finish(resolve, msg));
-    child.on('error', e => finish(reject, e));
-    child.on('exit', code => finish(reject, new Error(`grep worker exited unexpectedly (code ${code})`)));
-    child.send(job);
+    worker.on('error', e => finish(reject, e));
+    worker.on('exit', code => finish(reject, new Error(`grep worker exited unexpectedly (code ${code})`)));
+    worker.postMessage(job);
   });
 }
 
@@ -936,7 +941,7 @@ async function callTool(name, args) {
     case 'grep_files': {
       const root = resolveSafe(args.path);
       if (typeof args.pattern !== 'string' || !args.pattern) throw new Error('pattern must be a non-empty string');
-      // A broken regex fails here, before a worker is forked.
+      // A broken regex fails here, before a worker is started.
       try { new RegExp(args.pattern); }
       catch (e) { throw new Error(`invalid regex: ${e.message}`); }
       const job = {
@@ -1481,17 +1486,14 @@ async function handleMcpRequest(body) {
 }
 
 if (GREP_WORKER) {
-  // Forked child: do one grep job, answer, exit. Never binds a port.
-  init(process.argv[3]);
-  process.on('message', job => {
+  // Worker thread: do one grep job and answer; grepSpawn() terminates it.
+  init(workerData.vault);
+  parentPort.on('message', job => {
     let out;
     try { out = grepRun(job); }
     catch (e) { out = { error: e.message }; }
-    try { process.send(out, () => process.exit(0)); }
-    catch { process.exit(1); }
+    parentPort.postMessage(out);
   });
-  // Do not outlive a parent that went away.
-  process.on('disconnect', () => process.exit(0));
 }
 
 module.exports = {
@@ -1500,4 +1502,6 @@ module.exports = {
   isModernRequest, metaVersion, handleModernRequest, serverInstructions,
   // Tests only: the share of the grep time spent extracting documents.
   setGrepDocBudget(ms) { GREP_DOC_BUDGET_MS = ms; },
+  // Tests only: the grep wall-clock cap.
+  setGrepTimeout(ms) { GREP_TIMEOUT_MS = ms; },
 };

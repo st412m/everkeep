@@ -263,7 +263,7 @@ More: [troubleshooting](https://github.com/st412m/everkeep/blob/main/docs/troubl
 - Every path is confined to the vault, including through symlinks and on case-insensitive file systems.
 - On `127.0.0.1` (the default without Docker) requests whose `Host` or `Origin` is not local are refused, which stops websites in your browser from reaching it.
 - The token and the document cache live in the state directory, which must be outside the vault.
-- `grep_files` runs in a child process killed after 10 seconds; documents are extracted in worker threads with a timeout and a memory cap; SQLite runs `sqlite3 -readonly -safe`.
+- `grep_files` runs in a worker thread stopped after 10 seconds; documents are extracted in worker threads with a timeout and a memory cap; SQLite runs `sqlite3 -readonly -safe`.
 
 More: [security](https://github.com/st412m/everkeep/blob/main/docs/security.md).
 
