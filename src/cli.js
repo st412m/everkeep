@@ -50,6 +50,10 @@ function load(flags) {
   return C.loadConfig({ flags });
 }
 
+// Where the policy page is in mode "token".
+const PAGE_PATH_NOTE = 'the connector path with /policies in place of /mcp';
+const pagePath = token => `/private_${token}/policies`;
+
 // ---------------------------------------------------------------------------
 // serve
 // ---------------------------------------------------------------------------
@@ -92,11 +96,18 @@ async function serveCommand(rest) {
   const R = S.init(vault, { policyMode: s.policy_page.mode, docs: docsOf(s) });
   warnMissingVault(vault);
 
+  const tokenPage = s.policy_page.mode === 'token';
+  let policyPage = null;
+  if (tokenPage) {
+    const PP = require('./policy-page');
+    policyPage = PP.createTokenPage({ vault, allowedHosts: s.allowed_hosts });
+  }
+
   let server, localGuards;
   try {
     ({ server, localGuards } = await H.startHttp({
       port: s.port, host: s.host, token: tok.token, allowedHosts: s.allowed_hosts, logRequests: s.log_requests, legacyToken: tok.legacy,
-      maxBodyBytes: require('./body').bodyLimit(s.max_text_bytes),
+      maxBodyBytes: require('./body').bodyLimit(s.max_text_bytes), policyPage,
     }));
   } catch (e) {
     say(`cannot listen on ${s.host}:${s.port} (${e.code || e.message})`);
@@ -129,6 +140,7 @@ async function serveCommand(rest) {
   const hosts = s.allowed_hosts;
   const hostsSuffix = localGuards && hosts.length ? `, allowed hosts ${hosts.join(', ')}` : '';
   const lines = [`everkeep ${VERSION} on ${s.host}:${port}, vault ${vault}${caseSuffix(vault)}, policies ${s.policy_page.mode}, doclines ${DOCLINES_VERSION}${hostsSuffix}${H.bindNote(localGuards)}`];
+  if (tokenPage) lines.push(`everkeep: policy page: ${PAGE_PATH_NOTE}`);
   if (!localGuards && hosts.length)
     lines.push('everkeep: note: allowed_hosts is not used on a non-local bind (there are no Host/Origin checks to relax)');
   if (tok.legacy)
@@ -138,6 +150,7 @@ async function serveCommand(rest) {
     lines.push(
       `everkeep: new token generated and saved to ${tok.file}`,
       `everkeep: claude.ai connector path: ${p}`,
+      ...(tokenPage ? [`everkeep: policy page: ${pagePath(tok.token)}`] : []),
       `everkeep: Bearer header: ${b}`,
       'everkeep: shown once; `everkeep token` shows it again');
   }
@@ -190,7 +203,9 @@ async function stdioCommand(args) {
   C.assertStateOutsideVault(loaded.settings.state_dir, vault);
   C.ensureStateDir(loaded.settings.state_dir);
   const S = require('./server');
-  const R = S.init(vault, { policyMode: loaded.settings.policy_page.mode, docs: docsOf(loaded.settings) });
+  // No page on stdio: refusals name `everkeep policy`.
+  const mode = loaded.settings.policy_page.mode;
+  const R = S.init(vault, { policyMode: mode === 'token' ? 'off' : mode, docs: docsOf(loaded.settings) });
   warnMissingVault(vault);
   require('./retention').start(R.root);
   const { serveStdio } = require('./stdio');
@@ -218,6 +233,7 @@ function tokenCommand(rest) {
     const { token, file } = T.replaceToken(s.state_dir);
     process.stdout.write(T.connectionLines(token).join('\n') + '\n');
     say(`new token saved to ${file}; a running server accepts the old token until it is restarted; every connected client must be updated (connector URL or Bearer header)`);
+    if (s.policy_page.mode === 'token') say(`policy page: ${pagePath(token)}`);
     if (process.env.EVERKEEP_TOKEN)
       say('warning: env EVERKEEP_TOKEN is set and takes precedence over the saved token; unset it for the new one to take effect');
     return 0;
@@ -231,6 +247,7 @@ function tokenCommand(rest) {
     return 1;
   }
   process.stdout.write(T.connectionLines(tok.token).join('\n') + '\n');
+  if (s.policy_page.mode === 'token') say(`policy page: ${pagePath(tok.token)}`);
   return 0;
 }
 
@@ -285,7 +302,8 @@ async function checkConfigCommand(rest) {
   out.push(`allowed hosts: ${hosts.length ? hosts.join(', ') : 'none'}` +
     (hosts.length && !require('./http').isLocalBind(s.host) ? ' (not used on a non-local bind)' : ''));
   out.push(`log_requests: ${s.log_requests}`);
-  out.push(`policy page: ${s.policy_page.mode}${s.policy_page.mode === 'ha-ingress' ? ` on port ${s.policy_page.port}, users: ${s.policy_page.users.length ? s.policy_page.users.join(', ') : '(every user)'}` : ''}`);
+  if (s.policy_page.mode === 'token') out.push(`policy page: token (on the MCP port: ${PAGE_PATH_NOTE})`);
+  else out.push(`policy page: ${s.policy_page.mode}${s.policy_page.mode === 'ha-ingress' ? ` on port ${s.policy_page.port}, users: ${s.policy_page.users.length ? s.policy_page.users.join(', ') : '(every user)'}` : ''}`);
   out.push(`limits: max_doc_bytes ${s.max_doc_bytes}, max_text_bytes ${s.max_text_bytes}, extract_timeout_s ${s.extract_timeout_s}, cache_max_mb ${s.cache_max_mb}`);
 
   const T = require('./token');
@@ -556,9 +574,11 @@ async function initCommand(rest, { env = process.env, homedir = os.homedir(), in
     }
   }
 
+  let editorMode;
   try {
-    const state = C.loadConfig({ env, homedir, flags: { vault: dir } }).settings.state_dir;
-    C.assertStateOutsideVault(state, dir);
+    const { settings } = C.loadConfig({ env, homedir, flags: { vault: dir } });
+    editorMode = settings.policy_page.mode;
+    C.assertStateOutsideVault(settings.state_dir, dir);
   } catch (e) {
     if (e.name !== 'ConfigError') throw e;
     return refuse(e.message);
@@ -594,11 +614,11 @@ async function initCommand(rest, { env = process.env, homedir = os.homedir(), in
     const SP = require('./safepath');
     const W = require('./policy-write');
     const R = SP.createResolver(dir);
-    P.setEditorMode('off');
+    P.setEditorMode(editorMode);
     const setArgs = parseSetArgs(['.', '--mode', 'rev', '--trash']);
     const target = W.targetDir(R, dir);
     const change = changeFromFlags(setArgs, P.policyAt(target, R.root).policy);
-    W.writeMarker(R, target, W.specOf(change, W.contextOf(R, target)), 'off');
+    W.writeMarker(R, target, W.specOf(change, W.contextOf(R, target)), editorMode);
     say('policy: edits need the current rev, trash on (written)');
   }
 

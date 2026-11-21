@@ -17,7 +17,7 @@ policy-write.js   the only writer of .vault-policy
     ↑ everkeep policy (cli.js), the Vault policies page (policy-page.js, Home Assistant only)
 ```
 
-`everkeep serve` starts the HTTP listener, the policy page when `policy_page.mode` is `ha-ingress`, and the trash auto-purge timer, all in one Node.js process. `everkeep` with no command does the same on stdio, without a token and without a page. `grep_files` forks a copy of `server.js` for each search.
+`everkeep serve` starts the HTTP listener, the policy page (on the same port in mode `token`, on its own port in mode `ha-ingress`), and the trash auto-purge timer, all in one Node.js process. `everkeep` with no command does the same on stdio, without a token and without a page. `grep_files` forks a copy of `server.js` for each search.
 
 Over HTTP the server speaks JSON-RPC on `POST /mcp` and answers with `Content-Type: application/json`, never an event stream. `GET` gets 405, an `Accept` header that is empty or lists none of `application/json`, `text/event-stream`, `application/*`, `*/*` gets 406 (parameters such as q-values and letter case are ignored). The server sends no notifications, and `tools/list` is static (`listChanged: false`).
 

@@ -242,19 +242,20 @@ function createPolicyPage({ vault, users = [] }) {
 
 const FORBIDDEN_ORIGIN = { ok: false, error: 'Forbidden: the request did not come from this page' };
 
-// A POST counts as from the page when its Origin names the host it was sent to.
-function sameOrigin(req) {
-  const origin = req.headers.origin;
-  const host = req.headers.host;
+// A POST counts as from the page when its Origin names the host it was sent to,
+// or a host name in allowed (allowed_hosts as allowedHostnames returns it).
+function originAllowed(origin, host, allowed) {
   if (!origin || !host) return false;
-  try { return new URL(origin).host.toLowerCase() === host.toLowerCase(); }
-  catch { return false; }
+  let u;
+  try { u = new URL(origin); } catch { return false; }
+  return u.host.toLowerCase() === host.toLowerCase() || allowed.includes(u.hostname);
 }
 
 // token: one page per process, over the vault of the MCP server, served by the
 // MCP HTTP handler. Returns (req, res, url, base).
-function createTokenPage({ vault }) {
+function createTokenPage({ vault, allowedHosts = [] }) {
   if (R) throw new Error('the policy page is already set up for this process');
+  const allowed = require('./http').allowedHostnames(allowedHosts);
   R = SP.createResolver(vault);
   ROOT = R.root;
   P.setEditorMode('token');
@@ -263,7 +264,7 @@ function createTokenPage({ vault }) {
     res.setHeader('Referrer-Policy', 'no-referrer');
     res.setHeader('X-Frame-Options', 'DENY');
     res.setHeader('Content-Security-Policy', "frame-ancestors 'none'");
-    if (req.method === 'POST' && !sameOrigin(req)) { json(res, 403, FORBIDDEN_ORIGIN); return; }
+    if (req.method === 'POST' && !originAllowed(req.headers.origin, req.headers.host, allowed)) { json(res, 403, FORBIDDEN_ORIGIN); return; }
     handlePage(req, res, url, base, 'token');
   };
 }
@@ -276,7 +277,7 @@ function startLines(port) {
   return lines;
 }
 
-module.exports = { createPolicyPage, createTokenPage, startLines, pageUserAllowed };
+module.exports = { createPolicyPage, createTokenPage, startLines, pageUserAllowed, originAllowed };
 
 // ---------------------------------------------------------------------------
 // The page itself

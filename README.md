@@ -232,7 +232,7 @@ everkeep policy set raw --mode readonly --vault /home/me/notes
 | `never` | new files only; existing files cannot be changed |
 | `free` | no checks |
 
-With Docker, run the same commands inside the container: `docker exec everkeep everkeep policy show`. In the Home Assistant app, use the Vault policies page in the sidebar. The trash, auto-purge and what a broken marker does: [write policies](https://github.com/st412m/everkeep/blob/main/docs/policies.md).
+With Docker, run the same commands inside the container: `docker exec everkeep everkeep policy show`. With `everkeep serve`, the Vault policies page is at the connector address with `/policies` in place of `/mcp`. In the Home Assistant app, use the Vault policies page in the sidebar. The trash, auto-purge and what a broken marker does: [write policies](https://github.com/st412m/everkeep/blob/main/docs/policies.md).
 
 ## Documents and formats
 

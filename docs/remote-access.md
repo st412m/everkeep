@@ -82,6 +82,8 @@ notes.example.com {
 }
 ```
 
+The Vault policies page is at the same address with /policies in place of /mcp. Saving on it needs the proxy to pass the original Host header (Caddy does by default; with nginx: proxy_set_header Host $host;), or the public name in allowed_hosts.
+
 Everkeep speaks plain HTTP; never publish port 3100 itself without TLS in front.
 
 ## Without Docker

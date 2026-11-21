@@ -72,7 +72,7 @@ test('defaults', () => {
   assert.deepEqual(r.settings, {
     vault: null, port: 3100, host: '127.0.0.1', log_requests: false,
     max_doc_bytes: 52428800, max_text_bytes: 20971520, extract_timeout_s: 60, cache_max_mb: 512,
-    policy_page: { mode: 'off' }, allowed_hosts: [],
+    policy_page: { mode: 'token' }, allowed_hosts: [],
     state_dir: path.join(s.home, '.local', 'state', 'everkeep'),
   });
   assert.equal(r.sources.state_dir, 'default');
@@ -140,7 +140,7 @@ test('field checks', () => {
     [{ cache_max_mb: 1.5 }, /"cache_max_mb" must be a positive integer/],
     [{ host: '' }, /"host" must be a non-empty string/],
     [{ port: 70000 }, /"port" must be an integer 0-65535/],
-    [{ policy_page: { mode: 'web' } }, /"policy_page.mode" must be "off" or "ha-ingress"/],
+    [{ policy_page: { mode: 'web' } }, /"policy_page.mode" must be "off", "token" or "ha-ingress"/],
     [{ policy_page: { mode: 'off', port: 3101 } }, /unknown key "policy_page.port" \(mode "off" takes no other keys\)/],
     [{ policy_page: { mode: 'ha-ingress', users: 'alice' } }, /"policy_page.users" must be an array of strings/],
     [{ policy_page: { mode: 'ha-ingress', login: true } }, /unknown key "policy_page.login"/],

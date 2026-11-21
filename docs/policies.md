@@ -42,7 +42,7 @@ Policy: read-only, no trash (deletion not available) — inherited from /vault/r
 
 ## Setting a policy
 
-The assistant cannot change policies: MCP tools refuse to create, change, move or discard anything named `.vault-policy`, in any letter case, including a directory of that name anywhere in a path. You set them on the server with `everkeep policy`; in the Home Assistant app, on the Vault policies page in the sidebar. Both write the same bytes.
+The assistant cannot change policies: MCP tools refuse to create, change, move or discard anything named `.vault-policy`, in any letter case, including a directory of that name anywhere in a path. You set them on the Vault policies page — with `everkeep serve`, at the connector address with `/policies` in place of `/mcp`; in the Home Assistant app, in the sidebar — or on the server with `everkeep policy`. Both write the same bytes.
 
 `DIR` is absolute or relative to the vault root; the vault comes from `--vault`, `EVERKEEP_VAULT` or the config file. In Docker, prefix the commands with `docker exec everkeep`.
 

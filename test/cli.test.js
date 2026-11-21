@@ -168,9 +168,11 @@ test('serve: first start generates the token and shows it once; later starts and
     assert.equal(fs.statSync(file).mode & 0o777, 0o600);
     assert.equal(fs.statSync(s.state).mode & 0o777, 0o700);
     assert.equal(st.stderr,
-      `everkeep ${VERSION} on 127.0.0.1:${st.port}, vault ${s.vault}, policies off, doclines ${require('doclines/package.json').version}\n` +
+      `everkeep ${VERSION} on 127.0.0.1:${st.port}, vault ${s.vault}, policies token, doclines ${require('doclines/package.json').version}\n` +
+      'everkeep: policy page: the connector path with /policies in place of /mcp\n' +
       `everkeep: new token generated and saved to ${file}\n` +
       `everkeep: claude.ai connector path: /private_${token}/mcp\n` +
+      `everkeep: policy page: /private_${token}/policies\n` +
       `everkeep: Bearer header: Authorization: Bearer ${token}\n` +
       'everkeep: shown once; `everkeep token` shows it again\n');
     assert.equal(st.stdout, '');
@@ -194,7 +196,7 @@ test('serve: first start generates the token and shows it once; later starts and
   const t = run(['token'], env);
   assert.equal(t.code, 0);
   assert.equal(t.stdout, `/private_${token}/mcp\nAuthorization: Bearer ${token}\n`);
-  assert.equal(t.stderr, '');
+  assert.equal(t.stderr, `everkeep: policy page: /private_${token}/policies\n`);
 
   const c = run(['check-config'], isolatedEnv(s.home, { EVERKEEP_VAULT: s.vault }));
   assert.ok(!c.stdout.includes(token) && !c.stderr.includes(token));
@@ -213,7 +215,7 @@ test('token --new replaces the token and says a running server keeps the old one
   const [p, b] = r.stdout.trimEnd().split('\n');
   const token = /^\/private_([0-9a-f]{64})\/mcp$/.exec(p)[1];
   assert.equal(b, `Authorization: Bearer ${token}`);
-  assert.equal(r.stderr, `everkeep: new token saved to ${path.join(s.state, 'token')}; a running server accepts the old token until it is restarted; every connected client must be updated (connector URL or Bearer header)\n`);
+  assert.equal(r.stderr, `everkeep: new token saved to ${path.join(s.state, 'token')}; a running server accepts the old token until it is restarted; every connected client must be updated (connector URL or Bearer header)\neverkeep: policy page: /private_${token}/policies\n`);
 
   const again = run(['token', '--new'], env);
   assert.notEqual(again.stdout, r.stdout);
@@ -249,7 +251,7 @@ test('serve: non-local bind says so on the start line; log_requests masks the to
   const cfg = writeJson(path.join(s.base, 'c.json'), { vault: s.vault, log_requests: true });
   const st = await serve(['--port', '0', '--host', '0.0.0.0', '--token-file', tf], isolatedEnv(s.home, { EVERKEEP_CONFIG: cfg }));
   try {
-    assert.match(st.stderr, /^everkeep \S+ on 0\.0\.0\.0:\d+, vault \S+, policies off, doclines \S+ — non-local bind: no Host\/Origin checks, the token alone protects the server$/m);
+    assert.match(st.stderr, /^everkeep \S+ on 0\.0\.0\.0:\d+, vault \S+, policies token, doclines \S+ — non-local bind: no Host\/Origin checks, the token alone protects the server\neverkeep: policy page: the connector path with \/policies in place of \/mcp$/m);
     await post(st.port, `/private_${token}/mcp`, INIT);
     await new Promise(r => setTimeout(r, 100));
     assert.match(st.stderr, /^\[req\] \S+ \S+ POST \/private_\*\*\*\/mcp -> 200 \d+B pv=- ua="[^"]*"$/m);
@@ -282,7 +284,7 @@ test('allowed_hosts: start line and check-config show it; a listed Host passes o
   const env = isolatedEnv(s.home, { EVERKEEP_CONFIG: cfg });
   let st = await serve(['--port', '0', '--token-file', tf], env);
   try {
-    assert.match(st.stderr, /^everkeep \S+ on 127\.0\.0\.1:\d+, vault \S+, policies off, doclines \S+, allowed hosts notes\.example\.ts\.net, notes\.example\.com$/m);
+    assert.match(st.stderr, /^everkeep \S+ on 127\.0\.0\.1:\d+, vault \S+, policies token, doclines \S+, allowed hosts notes\.example\.ts\.net, notes\.example\.com\neverkeep: policy page: the connector path with \/policies in place of \/mcp$/m);
     assert.equal(await postWithHost(st.port, `/private_${token}/mcp`, INIT, 'notes.example.ts.net'), 200);
     assert.equal(await postWithHost(st.port, `/private_${token}/mcp`, INIT, 'evil.example.com'), 403);
   } finally {
@@ -290,7 +292,7 @@ test('allowed_hosts: start line and check-config show it; a listed Host passes o
   }
   st = await serve(['--port', '0', '--host', '0.0.0.0', '--token-file', tf], env);
   try {
-    assert.match(st.stderr, /^everkeep \S+ on 0\.0\.0\.0:\d+, vault \S+, policies off, doclines \S+ — non-local bind: no Host\/Origin checks, the token alone protects the server$/m);
+    assert.match(st.stderr, /^everkeep \S+ on 0\.0\.0\.0:\d+, vault \S+, policies token, doclines \S+ — non-local bind: no Host\/Origin checks, the token alone protects the server\neverkeep: policy page: the connector path with \/policies in place of \/mcp$/m);
     assert.match(st.stderr, /^everkeep: note: allowed_hosts is not used on a non-local bind \(there are no Host\/Origin checks to relax\)$/m);
   } finally {
     await stop(st);
@@ -381,7 +383,7 @@ test('case of the vault: check-config and the start line', { skip: SKIP_CLI }, a
     assert.match(r.stdout, /^vault case: case-insensitive vault$/m);
     const st = await serve(['--port', '0', '--vault', ci], isolatedEnv(s.home));
     try {
-      assert.match(st.stderr, new RegExp(`^everkeep ${esc(VERSION)} on 127\\.0\\.0\\.1:\\d+, vault ${esc(ci)}, case-insensitive vault, policies off, doclines `, 'm'));
+      assert.match(st.stderr, new RegExp(`^everkeep ${esc(VERSION)} on 127\\.0\\.0\\.1:\\d+, vault ${esc(ci)}, case-insensitive vault, policies token, doclines .*\\neverkeep: policy page: the connector path with /policies in place of /mcp$`, 'm'));
     } finally {
       await stop(st);
     }

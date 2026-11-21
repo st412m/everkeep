@@ -22,7 +22,7 @@ const DEFAULTS = {
   max_text_bytes: 20 * MB,
   extract_timeout_s: 60,
   cache_max_mb: 512,
-  policy_page: { mode: 'off' },
+  policy_page: { mode: 'token' },
   allowed_hosts: [],
 };
 
@@ -103,15 +103,15 @@ function parseConfig(raw, file) {
     const pp = raw.policy_page;
     if (!pp || typeof pp !== 'object' || Array.isArray(pp)) {
       problems.push('"policy_page" must be an object');
-    } else if (pp.mode === 'off') {
-      for (const k of Object.keys(pp)) if (k !== 'mode') problems.push(`unknown key "policy_page.${k}" (mode "off" takes no other keys)`);
+    } else if (pp.mode === 'off' || pp.mode === 'token') {
+      for (const k of Object.keys(pp)) if (k !== 'mode') problems.push(`unknown key "policy_page.${k}" (mode "${pp.mode}" takes no other keys)`);
     } else if (pp.mode === 'ha-ingress') {
       for (const k of Object.keys(pp)) if (!['mode', 'port', 'users'].includes(k)) problems.push(`unknown key "policy_page.${k}"`);
       if (pp.port !== undefined && !isPort(pp.port)) problems.push('"policy_page.port" must be an integer 0-65535');
       if (pp.users !== undefined && !(Array.isArray(pp.users) && pp.users.every(u => typeof u === 'string')))
         problems.push('"policy_page.users" must be an array of strings');
     } else {
-      problems.push('"policy_page.mode" must be "off" or "ha-ingress"');
+      problems.push('"policy_page.mode" must be "off", "token" or "ha-ingress"');
     }
   }
   if (problems.length) throw new ConfigError(`${file}: invalid config\n  ${problems.join('\n  ')}`);

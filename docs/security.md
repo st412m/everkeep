@@ -45,6 +45,10 @@ The assistant cannot change the rules it works under. MCP tools refuse to create
 
 Within the vault and its policies, everything the assistant can do: read every file, write and edit where the policies allow, discard into trash directories. It does not give: anything outside the vault, the token file or the cache, changing a policy, deleting a file outright, or writing to a SQLite database. Replace the token at once (`everkeep token --new`, restart) and look at recent changes; the trash keeps what was discarded until its auto-purge.
 
+## The Vault policies page (everkeep serve)
+
+`everkeep serve` serves the page on its own port at `/private_<token>/policies`, behind the same token as the connector path; there is no form of it with a `Bearer` header. Whoever has the token can already change files through the tools; the page adds changing policies. A save is accepted only from the page itself: the browser's `Origin` must name the host the request was sent to, or a name in `allowed_hosts`. The page is sent with the header `Referrer-Policy` set to `no-referrer`, since its address holds the token, and may not be shown inside a frame. Setting `policy_page` to `{"mode": "off"}` turns it off.
+
 ## The Vault policies page (Home Assistant)
 
 In the Home Assistant app the page runs in the same process on its own port, reachable only through Home Assistant ingress. It accepts connections from the Supervisor address `172.30.32.2` only, never through the token URL. Home Assistant shows its sidebar entry to administrators only but serves the page to any logged-in user who opens its address; the app option `policy_page_users` limits it to the listed users, and a forged second user header is refused.

@@ -9,7 +9,7 @@ const path = require('path');
 const { tmpDir, writeJson, CLI, SKIP_CLI, isolatedEnv } = require('./helpers.js');
 
 const skip = SKIP_CLI;
-const OFF = '`everkeep policy` on the server';
+const TOKEN = 'the Vault policies page (the connector address with /policies in place of /mcp) or `everkeep policy` on the server';
 const HA = 'the Vault policies page in the Home Assistant sidebar';
 const preamble = editor => `Everkeep policy. Applies to this directory and everything below it, until a deeper marker of the same name is met. Managed with ${editor} — edit by hand only to repair it.`;
 const marker = (editor, f) => JSON.stringify({ _: preamble(editor), ...f }, null, 2) + '\n';
@@ -50,13 +50,13 @@ test('set: writes the marker, prints where and the policy now in force', { skip 
   assert.equal(r.stderr, '');
   assert.equal(r.stdout, `Saved: ${s.J('raw', '.vault-policy')}\nPolicy: read-only, no trash (deletion not available) — own marker (${s.J('raw', '.vault-policy')})\n`);
   assert.equal(fs.readFileSync(s.J('raw', '.vault-policy'), 'utf8'),
-    marker(OFF, { readonly: true, overwrite: 'never' }));
+    marker(TOKEN, { readonly: true, overwrite: 'never' }));
   assert.equal((fs.statSync(s.J('raw', '.vault-policy')).mode & 0o777) & 0o022, 0, 'not group/other-writable');
 
   const r2 = run(['set', s.J('wiki', 'sub'), '--mode', 'never', '--trash', '.bin', '--purge-days', '7'], s.env);
   assert.equal(r2.code, 0, r2.stderr);
   assert.equal(fs.readFileSync(s.J('wiki', 'sub', '.vault-policy'), 'utf8'),
-    marker(OFF, { readonly: false, overwrite: 'never', trash: '.bin', retention_enabled: true, retention_days: 7 }));
+    marker(TOKEN, { readonly: false, overwrite: 'never', trash: '.bin', retention_enabled: true, retention_days: 7 }));
   assert.equal(r2.stdout.split('\n')[1], `Policy: overwrite=never, trash=.bin, auto-purge after 7 d — own marker (${s.J('wiki', 'sub', '.vault-policy')})`);
   assert.deepEqual(fs.readdirSync(s.J('wiki', 'sub')).sort(), ['.vault-policy'], 'no temp file left');
 });
@@ -66,13 +66,13 @@ test('set: what is not given keeps the value in force, as the page does', { skip
   let r = run(['set', 'wiki', '--mode', 'free'], s.env);
   assert.equal(r.code, 0, r.stderr);
   assert.equal(fs.readFileSync(s.J('wiki', '.vault-policy'), 'utf8'),
-    marker(OFF, { readonly: false, overwrite: 'free', trash: '.vault-trash', retention_enabled: false, retention_days: 30 }));
+    marker(TOKEN, { readonly: false, overwrite: 'free', trash: '.vault-trash', retention_enabled: false, retention_days: 30 }));
   r = run(['set', 'wiki', '--mode', 'rev', '--purge-days', '14'], s.env);
   assert.equal(fs.readFileSync(s.J('wiki', '.vault-policy'), 'utf8'),
-    marker(OFF, { readonly: false, overwrite: 'rev', trash: '.vault-trash', retention_enabled: true, retention_days: 14 }));
+    marker(TOKEN, { readonly: false, overwrite: 'rev', trash: '.vault-trash', retention_enabled: true, retention_days: 14 }));
   r = run(['set', 'wiki', '--mode', 'rev', '--no-trash', '--no-purge'], s.env);
   assert.equal(fs.readFileSync(s.J('wiki', '.vault-policy'), 'utf8'),
-    marker(OFF, { readonly: false, overwrite: 'rev' }));
+    marker(TOKEN, { readonly: false, overwrite: 'rev' }));
   r = run(['set', 'wiki', '--mode', 'readonly', '--trash'], s.env);
   assert.equal(r.code, 0);
   assert.equal(r.stderr, 'everkeep: note: a read-only zone has no trash; --trash is ignored\n');
@@ -144,7 +144,7 @@ test('show: the policy at DIR and every marker below it, the text of the listing
   ].join('\n'));
   r = run(['show', 'wiki/sub'], s.env);
   assert.equal(r.stdout.split('\n')[0], `Policy: overwrite=never, trash=.vault-trash in ${s.J('wiki')} — own marker (${s.J('wiki', 'sub', '.vault-policy')})`);
-  assert.equal(fs.readFileSync(s.J('wiki', 'sub', '.vault-policy'), 'utf8'), marker(OFF, { readonly: false, overwrite: 'never' }));
+  assert.equal(fs.readFileSync(s.J('wiki', 'sub', '.vault-policy'), 'utf8'), marker(TOKEN, { readonly: false, overwrite: 'never' }));
   r = run(['show', 'raw'], s.env);
   assert.equal(r.stdout, `Policy: none — unrestricted (no .vault-policy marker above this directory).\n\nNo markers at or below ${s.J('raw')}.\n`);
 });
@@ -225,5 +225,5 @@ test('set: --purge-days on a shared trash is not written and says why', { skip }
   const r = run(['set', 'wiki/sub', '--mode', 'rev', '--purge-days', '3'], s.env);
   assert.equal(r.code, 0, r.stderr);
   assert.equal(r.stderr, 'everkeep: note: auto-purge belongs to the directory that owns the trash; --purge-days is not written here (give --trash NAME for an own trash)\n');
-  assert.equal(fs.readFileSync(s.J('wiki', 'sub', '.vault-policy'), 'utf8'), marker(OFF, { readonly: false, overwrite: 'rev' }));
+  assert.equal(fs.readFileSync(s.J('wiki', 'sub', '.vault-policy'), 'utf8'), marker(TOKEN, { readonly: false, overwrite: 'rev' }));
 });

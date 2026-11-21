@@ -9,7 +9,7 @@ const http = require('http');
 const path = require('path');
 const S = require('../src/server.js');
 const H = require('../src/http.js');
-const { createTokenPage } = require('../src/policy-page.js');
+const { createTokenPage, originAllowed } = require('../src/policy-page.js');
 const { tmpDir } = require('./helpers.js');
 
 const V = tmpDir();
@@ -135,4 +135,12 @@ test('authorize: page paths, a near miss and no Bearer form', () => {
   assert.equal(H.authorize(req(`${PAGE}/api/tree`), TOKEN), 'page');
   assert.equal(H.authorize(req(`/private_${TOKEN}/policiesx`), TOKEN), 'not_found');
   assert.equal(H.authorize(req('/policies', { authorization: `Bearer ${TOKEN}` }), TOKEN), 'not_found');
+});
+
+test('originAllowed: a name in allowed_hosts is accepted behind a proxy', () => {
+  assert.equal(originAllowed('https://notes.example.com', '127.0.0.1:3100', ['notes.example.com']), true);
+  assert.equal(originAllowed('https://notes.example.com', '127.0.0.1:3100', []), false);
+  assert.equal(originAllowed('http://127.0.0.1:3100', '127.0.0.1:3100', []), true);
+  assert.equal(originAllowed(undefined, '127.0.0.1:3100', []), false);
+  assert.equal(originAllowed('not a url', '127.0.0.1:3100', ['x']), false);
 });

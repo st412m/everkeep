@@ -24,7 +24,7 @@ The config file is the one named by `EVERKEEP_CONFIG` (it must exist), else `~/.
   "max_text_bytes": 20971520,
   "extract_timeout_s": 60,
   "cache_max_mb": 512,
-  "policy_page": { "mode": "off" }
+  "policy_page": { "mode": "token" }
 }
 ```
 
@@ -42,7 +42,7 @@ The config file is the one named by `EVERKEEP_CONFIG` (it must exist), else `~/.
 | `max_text_bytes` | | `20971520` (20 MB) | Text extracted from one document, at most. It also sets the largest HTTP request: twice this value plus 1 MiB (41 MiB by default); a larger one is refused with 413. |
 | `extract_timeout_s` | | `60` | Time one document may take to extract. |
 | `cache_max_mb` | | `512` | Size of the document cache; the least recently used entries go first. |
-| `policy_page` | | `{"mode": "off"}` | `{"mode": "ha-ingress", "port": 3101, "users": []}` in the Home Assistant app only. |
+| `policy_page` | | `{"mode": "token"}` | "token": the Vault policies page on the MCP port, at the connector path with /policies in place of /mcp. "off": no page. `{"mode": "ha-ingress", "port": 3101, "users": []}` in the Home Assistant app only. |
 | `$comment` | | | Free text, ignored. |
 
 The Docker image sets `EVERKEEP_VAULT=/vault` and `EVERKEEP_STATE_DIR=/data`; a config file mounted into the container uses container paths.
@@ -107,7 +107,8 @@ With `--host 0.0.0.0` (or another non-local address) it answers on the network, 
 The start line on stderr shows what is in force:
 
 ```text
-everkeep 1.1.0 on 127.0.0.1:3100, vault /home/me/notes, policies off, doclines 0.1.1, allowed hosts notes.example.ts.net
+everkeep 1.1.0 on 127.0.0.1:3100, vault /home/me/notes, policies token, doclines 0.1.1, allowed hosts notes.example.ts.net
+everkeep: policy page: the connector path with /policies in place of /mcp
 ```
 
 ## Request log
@@ -135,7 +136,7 @@ state dir: /home/me/.local/state/everkeep (default)
 listen: 127.0.0.1:3100 (host default, port default)
 allowed hosts: none
 log_requests: false
-policy page: off
+policy page: token (on the MCP port: the connector path with /policies in place of /mcp)
 limits: max_doc_bytes 52428800, max_text_bytes 20971520, extract_timeout_s 60, cache_max_mb 512
 token: /home/me/.local/state/everkeep/token
 toolchain:
