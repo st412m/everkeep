@@ -1,6 +1,9 @@
 'use strict';
 /**
- * Everkeep — the "Vault policies" page (policy_page mode "ha-ingress")
+ * Everkeep — the "Vault policies" page, in two modes: "ha-ingress" (its own
+ * port behind Home Assistant ingress) and "token" (on the MCP port of
+ * `everkeep serve`, under /private_<token>/policies). The rest of this comment
+ * is about "ha-ingress".
  *
  * It runs its own HTTP server on its own port (policy_page.port, 3101, Home
  * Assistant ingress, not published in the app's `ports:`). Markers are written
@@ -27,7 +30,7 @@ const SUPERVISOR_IP = '172.30.32.2';
 // Local testing only (`ALLOW_LOCAL=true`).
 const ALLOW_LOCAL = process.env.ALLOW_LOCAL === 'true';
 
-// Set by createPolicyPage(). ROOT is the branded vault root; anything sent as
+// Set by createPolicyPage() or createTokenPage(). ROOT is the branded vault root; anything sent as
 // JSON takes `.path`.
 let R = null;
 let ROOT = null;
@@ -153,7 +156,7 @@ function buildTree() {
 // Save
 // ---------------------------------------------------------------------------
 
-function applyChange(body) {
+function applyChange(body, mode) {
   if (!body || typeof body.path !== 'string') throw new Error('path is required');
   const dir = W.targetDir(R, body.path);
 
@@ -162,7 +165,7 @@ function applyChange(body) {
     return `Marker removed: ${t} — this directory now follows the rule above it.`;
   }
 
-  const t = W.writeMarker(R, dir, W.specOf(body, W.contextOf(R, dir)), 'ha-ingress');
+  const t = W.writeMarker(R, dir, W.specOf(body, W.contextOf(R, dir)), mode);
   return `Saved: ${t}`;
 }
 
@@ -176,15 +179,11 @@ function json(res, code, obj) {
   res.end(b);
 }
 
-const listener = (req, res) => {
-  if (!fromSupervisor(req)) { res.writeHead(403, { 'Content-Type': 'text/plain' }); res.end('Forbidden\n'); return; }
-  if (!pageUserAllowed(req.rawHeaders, PAGE_USERS)) { res.writeHead(403, { 'Content-Type': 'text/plain' }); res.end(NOT_LISTED); return; }
-
-  const url = req.url.split('?')[0].replace(/\/+$/, '') || '/';
-
+// Routes of the page. url is the request path relative to the page (no query,
+// no trailing slash, "/" for the page itself); base is the page's URL prefix.
+function handlePage(req, res, url, base, mode) {
   if (req.method === 'GET' && (url === '/' || url === '/index.html')) {
-    const base = (req.headers['x-ingress-path'] || '').replace(/\/+$/, '');
-    const body = Buffer.from(page(base), 'utf8');
+    const body = Buffer.from(page(base, mode), 'utf8');
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Content-Length': body.length });
     res.end(body);
     return;
@@ -205,7 +204,7 @@ const listener = (req, res) => {
       }
       try {
         const body = JSON.parse(r.body.toString('utf8'));
-        const msg = applyChange(body);
+        const msg = applyChange(body, mode);
         json(res, 200, { ok: true, message: msg });
       } catch (e) {
         json(res, 400, { ok: false, error: e.message });
@@ -216,6 +215,17 @@ const listener = (req, res) => {
 
   res.writeHead(404, { 'Content-Type': 'text/plain' });
   res.end('Not found\n');
+}
+
+// ha-ingress: only the Supervisor, only listed users; the base comes from the
+// gateway's X-Ingress-Path header.
+const listener = (req, res) => {
+  if (!fromSupervisor(req)) { res.writeHead(403, { 'Content-Type': 'text/plain' }); res.end('Forbidden\n'); return; }
+  if (!pageUserAllowed(req.rawHeaders, PAGE_USERS)) { res.writeHead(403, { 'Content-Type': 'text/plain' }); res.end(NOT_LISTED); return; }
+
+  const url = req.url.split('?')[0].replace(/\/+$/, '') || '/';
+  const base = (req.headers['x-ingress-path'] || '').replace(/\/+$/, '');
+  handlePage(req, res, url, base, 'ha-ingress');
 };
 
 // One page per process, over the vault of the MCP server. Returns the HTTP
@@ -230,6 +240,34 @@ function createPolicyPage({ vault, users = [] }) {
   return http.createServer(listener);
 }
 
+const FORBIDDEN_ORIGIN = { ok: false, error: 'Forbidden: the request did not come from this page' };
+
+// A POST counts as from the page when its Origin names the host it was sent to.
+function sameOrigin(req) {
+  const origin = req.headers.origin;
+  const host = req.headers.host;
+  if (!origin || !host) return false;
+  try { return new URL(origin).host.toLowerCase() === host.toLowerCase(); }
+  catch { return false; }
+}
+
+// token: one page per process, over the vault of the MCP server, served by the
+// MCP HTTP handler. Returns (req, res, url, base).
+function createTokenPage({ vault }) {
+  if (R) throw new Error('the policy page is already set up for this process');
+  R = SP.createResolver(vault);
+  ROOT = R.root;
+  P.setEditorMode('token');
+  return (req, res, url, base) => {
+    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('Referrer-Policy', 'no-referrer');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('Content-Security-Policy', "frame-ancestors 'none'");
+    if (req.method === 'POST' && !sameOrigin(req)) { json(res, 403, FORBIDDEN_ORIGIN); return; }
+    handlePage(req, res, url, base, 'token');
+  };
+}
+
 // Start lines for the log.
 function startLines(port) {
   const lines = [`everkeep: policy page on port ${port} (ingress), vault ${ROOT.path}`];
@@ -238,13 +276,20 @@ function startLines(port) {
   return lines;
 }
 
-module.exports = { createPolicyPage, startLines, pageUserAllowed };
+module.exports = { createPolicyPage, createTokenPage, startLines, pageUserAllowed };
 
 // ---------------------------------------------------------------------------
 // The page itself
 // ---------------------------------------------------------------------------
 
-function page(base) {
+const READONLY_NOTE = {
+  'ha-ingress': `<b>Read-only</b> stops this add-on's tools. It does not stop anything else that writes to the vault
+  — a Home Assistant <code>shell_command</code> copying files in, Samba, the file editor — those go
+  straight to the filesystem and never see these markers.`,
+  token: `<b>Read-only</b> stops Everkeep's tools. It does not stop anything else that writes to the vault — copying files in, a network share, a sync program — those go straight to the filesystem and never see these markers.`,
+};
+
+function page(base, mode) {
   return `<!DOCTYPE html>
 <html lang="en"><head>
 <meta charset="utf-8">
@@ -283,9 +328,7 @@ function page(base) {
   Put policies on the top-level directories and let the rest inherit; if some nested directory needs
   its own rule, it is usually cleaner to lift that directory up here.
   <br><br>
-  <b>Read-only</b> stops this add-on's tools. It does not stop anything else that writes to the vault
-  — a Home Assistant <code>shell_command</code> copying files in, Samba, the file editor — those go
-  straight to the filesystem and never see these markers.
+  ${READONLY_NOTE[mode]}
 </div>
 <div id="msg"></div>
 <script>

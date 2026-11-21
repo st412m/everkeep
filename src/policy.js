@@ -30,13 +30,13 @@ const SKIP_DIRS = new Set(['.git', 'node_modules', '.svn', '.hg']);
 let EDITOR_MODE = 'off';
 
 function setEditorMode(mode) {
-  EDITOR_MODE = mode === 'ha-ingress' ? 'ha-ingress' : 'off';
+  EDITOR_MODE = mode === 'ha-ingress' || mode === 'token' ? mode : 'off';
 }
 
 function policyEditor(mode = EDITOR_MODE) {
-  return mode === 'ha-ingress'
-    ? 'the Vault policies page in the Home Assistant sidebar'
-    : '`everkeep policy` on the server';
+  if (mode === 'ha-ingress') return 'the Vault policies page in the Home Assistant sidebar';
+  if (mode === 'token') return 'the Vault policies page (the connector address with /policies in place of /mcp) or `everkeep policy` on the server';
+  return '`everkeep policy` on the server';
 }
 
 // No markers anywhere: no restrictions.

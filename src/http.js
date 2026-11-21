@@ -65,8 +65,11 @@ function sameSecret(given, token) {
 
 const PRIVATE_PREFIX = '/private_';
 const MCP_SUFFIX = '/mcp';
+const PAGE_SUFFIX = '/policies';
+// /private_<candidate>/policies or /private_<candidate>/policies/<rest>.
+const PAGE_PATH = /^\/private_(.*?)\/policies(?:\/|$)/;
 
-// 'ok' | 'not_found' | 'unauthorized'
+// 'ok' | 'page' | 'not_found' | 'unauthorized'
 function authorize(req, token) {
   let pathname;
   try {
@@ -75,6 +78,8 @@ function authorize(req, token) {
     return 'not_found';
   }
   if (pathname.startsWith('/.well-known/')) return 'not_found';
+  const page = pathname.startsWith(PRIVATE_PREFIX) ? PAGE_PATH.exec(pathname) : null;
+  if (page) return sameSecret(page[1], token) ? 'page' : 'not_found';
   if (pathname.startsWith(PRIVATE_PREFIX) && pathname.endsWith(MCP_SUFFIX)) {
     const candidate = pathname.slice(PRIVATE_PREFIX.length, -MCP_SUFFIX.length);
     return sameSecret(candidate, token) ? 'ok' : 'not_found';
@@ -345,9 +350,10 @@ function forbidden(res, message) {
  * The request listener: auth front → (localhost bind only) Host/Origin checks
  * → /mcp. `log` receives lines without tokens. `legacyToken` skips the token
  * rules (a pre-1.0 token kept inside Home Assistant, see token.js).
- * maxBodyBytes caps the request body (413 beyond it).
+ * maxBodyBytes caps the request body (413 beyond it). policyPage (from
+ * createTokenPage) serves /private_<token>/policies; without it that path is 404.
  */
-function createHttpHandler({ token, host = DEFAULT_HOST, allowedHosts = [], logRequests = false, legacyToken = false, maxBodyBytes = B.bodyLimit(20 * B.MiB), log = m => process.stderr.write(m + '\n') }) {
+function createHttpHandler({ token, host = DEFAULT_HOST, allowedHosts = [], logRequests = false, legacyToken = false, maxBodyBytes = B.bodyLimit(20 * B.MiB), log = m => process.stderr.write(m + '\n'), policyPage = null }) {
   if (!legacyToken) validateToken(token);
   const localGuards = isLocalBind(host);
   const allowed = allowedHostnames(allowedHosts);
@@ -372,6 +378,15 @@ function createHttpHandler({ token, host = DEFAULT_HOST, allowedHosts = [], logR
       const o = originRefusal(req.headers.origin, allowed);
       if (o) { note = '(Origin not local)'; log(`everkeep: http ${req.method} 403 (Origin not local)`); return forbidden(res, o); }
     }
+    if (verdict === 'page' && policyPage === null) { note = '(not found)'; return bare(res, 404); }
+    if (verdict === 'page') {
+      const base = PRIVATE_PREFIX + token + PAGE_SUFFIX;
+      const pathname = new URL(req.url, 'http://localhost').pathname;
+      const url = pathname.slice(base.length).replace(/\/+$/, '') || '/';
+      note = '(policy page)';
+      policyPage(req, res, url, base);
+      return;
+    }
     transport(req, res, {
       maxBodyBytes,
       onTooLarge: () => { note = '(too large)'; log(`everkeep: http ${req.method} 413 (body too large)`); },
@@ -385,8 +400,8 @@ function bindNote(localGuards) {
   return localGuards ? '' : ' — non-local bind: no Host/Origin checks, the token alone protects the server';
 }
 
-function startHttp({ port, host = DEFAULT_HOST, token, allowedHosts = [], logRequests = false, legacyToken = false, maxBodyBytes, log }) {
-  const listener = createHttpHandler({ token, host, allowedHosts, logRequests, legacyToken, maxBodyBytes, log });
+function startHttp({ port, host = DEFAULT_HOST, token, allowedHosts = [], logRequests = false, legacyToken = false, maxBodyBytes, log, policyPage = null }) {
+  const listener = createHttpHandler({ token, host, allowedHosts, logRequests, legacyToken, maxBodyBytes, log, policyPage });
   const server = http.createServer(listener);
   return new Promise((resolve, reject) => {
     server.once('error', reject);
