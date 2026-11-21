@@ -20,9 +20,9 @@ function writeJson(file, obj) {
 
 const CLI = path.join(__dirname, '..', 'src', 'cli.js');
 
-// The CLI refuses to start natively on Windows and macOS.
-const NATIVE = process.platform !== 'win32' && process.platform !== 'darwin';
-const SKIP_CLI = NATIVE ? false : 'the CLI refuses to start natively on Windows and macOS; these tests run on Linux';
+// The CLI refuses to start natively on Windows.
+const NATIVE = process.platform !== 'win32';
+const SKIP_CLI = NATIVE ? false : 'the CLI refuses to start natively on Windows; these tests run on Linux and macOS';
 
 // An environment that cannot pick up the real config, state dir or token.
 function isolatedEnv(home, extra = {}) {

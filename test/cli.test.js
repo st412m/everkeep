@@ -66,12 +66,12 @@ test('--version and --help work everywhere', () => {
   assert.ok(h.stdout.startsWith(`everkeep ${VERSION}\n\nUsage:\n`), h.stdout);
 });
 
-test('native Windows / macOS: every command is refused with exit 1', { skip: NATIVE ? 'runs on Windows and macOS' : false }, () => {
+test('native Windows: every command is refused with exit 1', { skip: NATIVE ? 'runs on Windows' : false }, () => {
   for (const args of [[], ['serve'], ['token'], ['check-config']]) {
     const r = run(args, { PATH: process.env.PATH });
     assert.equal(r.code, 1, args.join(' '));
     assert.equal(r.stdout, '');
-    assert.match(r.stderr, /^everkeep: (Windows|macOS) is not supported natively \(path checks are Linux-only\); run Everkeep in Docker\n$/);
+    assert.match(r.stderr, /^everkeep: Windows is not supported natively \(path checks are Linux-only\); run Everkeep in Docker\n$/);
   }
 });
 

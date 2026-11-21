@@ -199,10 +199,10 @@ test('a UTF-8 BOM in the config file is accepted', () => {
 
 // ---- platform ----
 
-test('native Windows and macOS are refused with a pointer to Docker', () => {
+test('native Windows is refused with a pointer to Docker; Linux and macOS are not', () => {
   assert.equal(C.platformRefusal('linux'), null);
   assert.equal(C.platformRefusal('win32'), 'Windows is not supported natively (path checks are Linux-only); run Everkeep in Docker');
-  assert.equal(C.platformRefusal('darwin'), 'macOS is not supported natively (path checks are Linux-only); run Everkeep in Docker');
+  assert.equal(C.platformRefusal('darwin'), null);
 });
 
 test('the state directory is created with mode 0700', { skip: process.platform === 'win32' ? 'POSIX modes' : false }, () => {

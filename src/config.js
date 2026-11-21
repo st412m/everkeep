@@ -41,7 +41,6 @@ class ConfigError extends Error {
 // Path checks are written and tested for Linux only.
 function platformRefusal(platform = process.platform) {
   if (platform === 'win32') return 'Windows is not supported natively (path checks are Linux-only); run Everkeep in Docker';
-  if (platform === 'darwin') return 'macOS is not supported natively (path checks are Linux-only); run Everkeep in Docker';
   return null;
 }
 

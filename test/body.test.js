@@ -97,7 +97,7 @@ test('declared length beyond the budget: socket closed within 2 s', async () => 
   const s = await watch({ 'Content-Length': String(BUDGET + 1) }, req => req.write(Buffer.alloc(2048)));
   assert.ok(s.closeMs <= 2000, `closed after ${s.closeMs} ms`);
   if (s.status !== null) assert.equal(s.status, 413);
-  else assert.equal(s.code, 'ECONNRESET');
+  else assert.ok(s.code === 'ECONNRESET' || s.code === 'EPIPE', `error: ${s.code}`);
 });
 
 test('chunked body kept open: 413 after the drain timer, then close', { timeout: 15000 }, async () => {
@@ -129,7 +129,7 @@ test('chunked body past the budget: 413 or reset, closed within 2 s of passing i
   const ms = s.closedAt - passedAt;
   assert.ok(ms <= 2000, `closed ${ms} ms after passing the budget`);
   if (s.status !== null) assert.equal(s.status, 413);
-  else assert.equal(s.code, 'ECONNRESET');
+  else assert.ok(s.code === 'ECONNRESET' || s.code === 'EPIPE', `error: ${s.code}`);
 });
 
 test('a normal request still gets 200', async () => {

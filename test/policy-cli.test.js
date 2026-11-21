@@ -1,6 +1,6 @@
 'use strict';
-// `everkeep policy show|set|clear`, run as a user would. Linux only: the CLI
-// refuses to start natively on Windows and macOS.
+// `everkeep policy show|set|clear`, run as a user would. Not on Windows: the
+// CLI refuses to start natively there.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { spawnSync } = require('child_process');
