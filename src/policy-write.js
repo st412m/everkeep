@@ -141,13 +141,30 @@ function markerText(spec, mode) {
   return JSON.stringify(body, null, 2) + '\n';
 }
 
+// On Windows a file another program holds open without delete sharing (an
+// editor, an antivirus scan) cannot be replaced or removed for a while: such an
+// error is retried after 50, 100, 200 and 400 ms, then reported as held.
+const HELD = new Set(['EPERM', 'EBUSY', 'EACCES']);
+const RETRY_MS = [50, 100, 200, 400];
+const pause = ms => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+
+function retryHeld(fn, file, undone, { windows = process.platform === 'win32', sleep = pause } = {}) {
+  for (let i = 0; ; i++) {
+    try { return fn(); } catch (e) {
+      if (!windows || !HELD.has(e.code)) throw e;
+      if (i === RETRY_MS.length) throw new Error(`${file} is open in another program (${e.code}); close it and try again — ${undone}`);
+      sleep(RETRY_MS[i]);
+    }
+  }
+}
+
 // Writes the marker of dir (a path from targetDir). Returns the marker path.
 function writeMarker(R, dir, spec, mode) {
   const text = markerText(spec, mode);
   const target = R.resolveSafe(markerPath(dir).path);
   const tmp = R.resolveSafe(SP.child(dir, `.vault-policy.tmp-${process.pid}-${Date.now()}`).path);
   fs.writeFileSync(tmp.path, text, 'utf8');
-  try { fs.renameSync(tmp.path, target.path); }
+  try { retryHeld(() => fs.renameSync(tmp.path, target.path), target.path, 'the marker was not changed'); }
   catch (e) { try { fs.unlinkSync(tmp.path); } catch {} throw e; }
   return target.path;
 }
@@ -155,8 +172,9 @@ function writeMarker(R, dir, spec, mode) {
 // unlink does not follow the final symlink, so the lexical path is enough.
 function removeMarker(dir) {
   const target = SP.child(dir, P.POLICY_FILE);
-  try { fs.unlinkSync(target.path); } catch (e) { if (e.code !== 'ENOENT') throw e; }
+  try { retryHeld(() => fs.unlinkSync(target.path), target.path, 'the marker was not removed'); }
+  catch (e) { if (e.code !== 'ENOENT') throw e; }
   return target.path;
 }
 
-module.exports = { preamble, targetDir, markerPath, contextOf, specOf, markerText, writeMarker, removeMarker };
+module.exports = { preamble, targetDir, markerPath, contextOf, specOf, markerText, writeMarker, removeMarker, retryHeld };
