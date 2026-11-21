@@ -91,6 +91,7 @@ async function serveCommand(rest) {
   try {
     ({ server, localGuards } = await H.startHttp({
       port: s.port, host: s.host, token: tok.token, allowedHosts: s.allowed_hosts, logRequests: s.log_requests, legacyToken: tok.legacy,
+      maxBodyBytes: require('./body').bodyLimit(s.max_text_bytes),
     }));
   } catch (e) {
     say(`cannot listen on ${s.host}:${s.port} (${e.code || e.message})`);

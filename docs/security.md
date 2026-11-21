@@ -17,6 +17,8 @@ Answers to a wrong request say as little as possible:
 - `/.well-known/…`: 404, so clients see a server without OAuth and do not try to start a login;
 - a `Bearer` header with a wrong token: 401 with an empty body.
 
+A request body larger than twice `max_text_bytes` plus 1 MiB (41 MiB by default) is refused with 413 after the token check; the policy page accepts at most 1 MiB.
+
 There is no OAuth and no user accounts: whoever has the token has the server. To replace it, run `everkeep token --new`, restart the server and update every client.
 
 ## Where it listens

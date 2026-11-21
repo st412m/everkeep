@@ -39,7 +39,7 @@ The config file is the one named by `EVERKEEP_CONFIG` (it must exist), else `~/.
 | `state_dir` | `EVERKEEP_STATE_DIR` | `~/.local/state/everkeep` | Token and document cache. Must be outside the vault. |
 | `log_requests` | | `false` | One log line per HTTP request, see [Request log](#request-log). |
 | `max_doc_bytes` | | `52428800` (50 MB) | Larger documents are refused, not read. |
-| `max_text_bytes` | | `20971520` (20 MB) | Text extracted from one document, at most. |
+| `max_text_bytes` | | `20971520` (20 MB) | Text extracted from one document, at most. It also sets the largest HTTP request: twice this value plus 1 MiB (41 MiB by default); a larger one is refused with 413. |
 | `extract_timeout_s` | | `60` | Time one document may take to extract. |
 | `cache_max_mb` | | `512` | Size of the document cache; the least recently used entries go first. |
 | `policy_page` | | `{"mode": "off"}` | `{"mode": "ha-ingress", "port": 3101, "users": []}` in the Home Assistant app only. |

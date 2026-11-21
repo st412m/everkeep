@@ -17,7 +17,11 @@ const path = require('path');
 const P = require('./policy');
 const SP = require('./safepath');
 const W = require('./policy-write');
+const B = require('./body');
 const { VERSION } = require('./version');
+
+// The page posts one marker change.
+const PAGE_BODY_LIMIT = B.MiB;
 
 const SUPERVISOR_IP = '172.30.32.2';
 // Local testing only (`ALLOW_LOCAL=true`).
@@ -193,17 +197,20 @@ const listener = (req, res) => {
   }
 
   if (req.method === 'POST' && url === '/api/policy') {
-    const chunks = [];
-    req.on('data', c => chunks.push(c));
-    req.on('end', () => {
+    B.readBody(req, { limit: PAGE_BODY_LIMIT }).then(r => {
+      if (r.aborted) return;
+      if (!r.ok) {
+        B.sendTooLarge(req, res, 413, { 'Content-Type': 'application/json; charset=utf-8' }, JSON.stringify({ ok: false, error: `Request body too large (limit ${PAGE_BODY_LIMIT} bytes)` }), r.destroy);
+        return;
+      }
       try {
-        const body = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+        const body = JSON.parse(r.body.toString('utf8'));
         const msg = applyChange(body);
         json(res, 200, { ok: true, message: msg });
       } catch (e) {
         json(res, 400, { ok: false, error: e.message });
       }
-    });
+    }).catch(e => { if (!res.headersSent) json(res, 500, { ok: false, error: e.message }); else res.end(); });
     return;
   }
 

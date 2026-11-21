@@ -21,6 +21,7 @@
 const crypto = require('crypto');
 const http = require('http');
 const S = require('./server');
+const B = require('./body');
 
 const DEFAULT_HOST = '127.0.0.1';
 const LOCAL_BINDS = new Set(['127.0.0.1', 'localhost', '::1', '[::1]']);
@@ -239,8 +240,15 @@ function acceptsMcp(header) {
     .some(type => ACCEPTED_MEDIA.has(type));
 }
 
+// An unexpected exception answers 500; the process keeps serving.
+function internalError(res, e) {
+  process.stderr.write(`request failed: ${e && e.stack || e}\n`);
+  if (!res.headersSent) res.writeHead(500, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify({ jsonrpc: '2.0', id: null, error: { code: -32603, message: 'Internal error' } }));
+}
+
 // /mcp, past the auth front.
-function transport(req, res) {
+async function transport(req, res, { maxBodyBytes, onTooLarge }) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, DELETE');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept, mcp-session-id, mcp-protocol-version, mcp-method, mcp-name');
@@ -257,23 +265,23 @@ function transport(req, res) {
     return;
   }
 
-  const chunks = [];
-  req.on('data', c => chunks.push(c));
-  req.on('end', async () => {
-    try {
-      await answer(req, res, chunks);
-    } catch (e) {
-      // An unexpected exception answers 500; the process keeps serving.
-      process.stderr.write(`request failed: ${e && e.stack || e}\n`);
-      if (!res.headersSent) res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ jsonrpc: '2.0', id: null, error: { code: -32603, message: 'Internal error' } }));
-    }
-  });
+  const r = await B.readBody(req, { limit: maxBodyBytes });
+  if (r.aborted) return;
+  if (!r.ok) {
+    onTooLarge();
+    B.sendTooLarge(req, res, 413, { 'Content-Type': 'application/json' }, JSON.stringify({ jsonrpc: '2.0', id: null, error: { code: -32600, message: `Request body too large (limit ${maxBodyBytes} bytes). Write a big file in parts: write_file the first part, then edit_file to append the rest.` } }), r.destroy);
+    return;
+  }
+  try {
+    await answer(req, res, r.body);
+  } catch (e) {
+    internalError(res, e);
+  }
 }
 
-async function answer(req, res, chunks) {
+async function answer(req, res, raw) {
   let body;
-  try { body = JSON.parse(Buffer.concat(chunks).toString('utf8')); }
+  try { body = JSON.parse(raw.toString('utf8')); }
   catch { res.writeHead(400); res.end('Bad JSON'); return; }
 
   if (isModernHttpRequest(req.rawHeaders, body)) return answerModern(req, res, body);
@@ -337,8 +345,9 @@ function forbidden(res, message) {
  * The request listener: auth front → (localhost bind only) Host/Origin checks
  * → /mcp. `log` receives lines without tokens. `legacyToken` skips the token
  * rules (a pre-1.0 token kept inside Home Assistant, see token.js).
+ * maxBodyBytes caps the request body (413 beyond it).
  */
-function createHttpHandler({ token, host = DEFAULT_HOST, allowedHosts = [], logRequests = false, legacyToken = false, log = m => process.stderr.write(m + '\n') }) {
+function createHttpHandler({ token, host = DEFAULT_HOST, allowedHosts = [], logRequests = false, legacyToken = false, maxBodyBytes = B.bodyLimit(20 * B.MiB), log = m => process.stderr.write(m + '\n') }) {
   if (!legacyToken) validateToken(token);
   const localGuards = isLocalBind(host);
   const allowed = allowedHostnames(allowedHosts);
@@ -363,7 +372,10 @@ function createHttpHandler({ token, host = DEFAULT_HOST, allowedHosts = [], logR
       const o = originRefusal(req.headers.origin, allowed);
       if (o) { note = '(Origin not local)'; log(`everkeep: http ${req.method} 403 (Origin not local)`); return forbidden(res, o); }
     }
-    transport(req, res);
+    transport(req, res, {
+      maxBodyBytes,
+      onTooLarge: () => { note = '(too large)'; log(`everkeep: http ${req.method} 413 (body too large)`); },
+    }).catch(e => internalError(res, e));
   };
   listener.localGuards = localGuards;
   return listener;
@@ -373,8 +385,8 @@ function bindNote(localGuards) {
   return localGuards ? '' : ' — non-local bind: no Host/Origin checks, the token alone protects the server';
 }
 
-function startHttp({ port, host = DEFAULT_HOST, token, allowedHosts = [], logRequests = false, legacyToken = false, log }) {
-  const listener = createHttpHandler({ token, host, allowedHosts, logRequests, legacyToken, log });
+function startHttp({ port, host = DEFAULT_HOST, token, allowedHosts = [], logRequests = false, legacyToken = false, maxBodyBytes, log }) {
+  const listener = createHttpHandler({ token, host, allowedHosts, logRequests, legacyToken, maxBodyBytes, log });
   const server = http.createServer(listener);
   return new Promise((resolve, reject) => {
     server.once('error', reject);

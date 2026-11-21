@@ -5,3 +5,4 @@ out/
 .env*
 # Your copy of compose.example.yaml carries real paths
 compose.yaml
+.claude/
