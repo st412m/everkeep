@@ -138,8 +138,11 @@ The image `ghcr.io/st412m/everkeep` runs `everkeep serve` on port 3100 as user i
 Install `poppler-utils` and `sqlite3` with your package manager, then run it with npx:
 
 ```sh
-npx --yes --package=everkeep everkeep serve --vault /home/me/notes
+npx --yes --package=everkeep everkeep init
+npx --yes --package=everkeep everkeep serve
 ```
+
+init creates `~/everkeep` with an instruction file for the assistant and a starter write policy, and saves it as the default vault; `--vault DIR` still names another one.
 
 On first start it prints the token once; `everkeep token` shows it again. For a permanent `everkeep` command, a CPU without AVX (some Celeron, Atom and Pentium models) and a systemd service, see [installation](https://github.com/st412m/everkeep/blob/main/docs/installation.md#linux-without-docker). Windows and macOS are not supported without Docker.
 
@@ -153,7 +156,7 @@ Settings come from flags, environment variables and an optional JSON file (`EVER
 
 | Setting | Flag / variable | Default |
 |---|---|---|
-| `vault` | `--vault`, `EVERKEEP_VAULT` | none, required |
+| `vault` | `--vault`, `EVERKEEP_VAULT` | saved by `everkeep init`, else required |
 | `host` | `--host` | `127.0.0.1` |
 | `port` | `--port` | `3100` |
 | `state_dir` | `EVERKEEP_STATE_DIR` | `~/.local/state/everkeep` |
@@ -167,8 +170,10 @@ Settings come from flags, environment variables and an optional JSON file (`EVER
 - **Claude Code:** over HTTP with the Bearer header, or on stdio:
 
   ```sh
-  claude mcp add --transport stdio everkeep -- npx --yes --package=everkeep everkeep --vault /home/me/notes
+  claude mcp add --scope user --transport stdio everkeep -- npx --yes --package=everkeep everkeep
   ```
+
+  After `everkeep init`; without it, add `--vault DIR` at the end.
 
 - **Claude Desktop without a public address:** Everkeep on stdio through Docker, see [Claude Desktop](https://github.com/st412m/everkeep/blob/main/docs/installation.md#claude-desktop).
 - **Cursor and other clients:** the URL `http://127.0.0.1:3100/mcp` (or your HTTPS address) with the header `Authorization: Bearer <token>`, see [installation](https://github.com/st412m/everkeep/blob/main/docs/installation.md#other-clients).

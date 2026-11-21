@@ -19,8 +19,8 @@
       "environmentVariables": [
         {
           "name": "EVERKEEP_VAULT",
-          "description": "Absolute path of the folder the server reads and edits (the vault)",
-          "isRequired": true,
+          "description": "Absolute path of the folder the server reads and edits (the vault); not needed after everkeep init, which saves it as the default",
+          "isRequired": false,
           "isSecret": false,
           "format": "filepath"
         },

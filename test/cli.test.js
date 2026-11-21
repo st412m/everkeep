@@ -143,7 +143,7 @@ test('serve: no vault, a bad config or a bad token exit 1 and never print the to
   const s = setup();
   let r = run(['serve', '--port', '0'], isolatedEnv(s.home));
   assert.equal(r.code, 1);
-  assert.equal(r.stderr, 'everkeep: no vault: pass --vault DIR, set env EVERKEEP_VAULT or "vault" in the config file\n');
+  assert.equal(r.stderr, 'everkeep: no vault: run everkeep init once, or pass --vault DIR, set env EVERKEEP_VAULT or "vault" in the config file\n');
 
   const cfg = writeJson(path.join(s.base, 'c.json'), { vault: s.vault, token: 'FAKE' });
   r = run(['serve', '--port', '0'], isolatedEnv(s.home, { EVERKEEP_CONFIG: cfg }));

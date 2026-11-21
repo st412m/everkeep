@@ -82,7 +82,7 @@ The refusal starts with `PATH_OUTSIDE_VAULT` when the path is not inside the vau
 
 Every message starts with `everkeep:`; the exit code is 1 (2 for a wrong command line).
 
-- `no vault: pass --vault DIR, set env EVERKEEP_VAULT or "vault" in the config file` — name the vault.
+- `no vault: run everkeep init once, or pass --vault DIR, set env EVERKEEP_VAULT or "vault" in the config file` — run `everkeep init` once, or name the vault.
 - `state_dir … is inside the vault …` — move the state directory out of the vault.
 - `state_dir … is not writable by this process` — the message names the user ids; in Docker, `/data` must belong to the user the container runs as.
 - `token from env EVERKEEP_TOKEN: the token is too short …` — a token you set yourself breaks the rules; unset it and let the server generate one.

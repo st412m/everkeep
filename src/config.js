@@ -196,7 +196,7 @@ function loadConfig({ env = process.env, cwd = process.cwd(), homedir = os.homed
 
 function requireVault(loaded) {
   if (!loaded.settings.vault)
-    throw new ConfigError('no vault: pass --vault DIR, set env EVERKEEP_VAULT or "vault" in the config file');
+    throw new ConfigError('no vault: run everkeep init once, or pass --vault DIR, set env EVERKEEP_VAULT or "vault" in the config file');
   return loaded.settings.vault;
 }
 

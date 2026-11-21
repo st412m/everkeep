@@ -75,8 +75,11 @@ sudo apt install poppler-utils sqlite3
 Run it with npx; npm downloads the package on the first run:
 
 ```sh
-npx --yes --package=everkeep everkeep serve --vault /home/me/notes
+npx --yes --package=everkeep everkeep init
+npx --yes --package=everkeep everkeep serve
 ```
+
+init creates `~/everkeep` (or the folder you name: `everkeep init /home/me/notes`), writes an instruction file into it — `CLAUDE.md`, or `AGENTS.md` with `--agent other` — and a starter policy (edits need the current rev, trash on), and saves the folder as the default vault in `~/.config/everkeep/config.json`. It never changes a file, marker or setting that already exists, so running it again is safe. `--vault DIR` and `EVERKEEP_VAULT` still name another vault.
 
 On the first start it creates the token and prints it once, with the claude.ai path and the Bearer line. `npx --yes --package=everkeep everkeep token` shows it again.
 
@@ -190,8 +193,10 @@ claude mcp add --transport http everkeep http://127.0.0.1:3100/mcp --header "Aut
 Or on stdio, started by Claude Code itself (Linux):
 
 ```sh
-claude mcp add --transport stdio everkeep -- npx --yes --package=everkeep everkeep --vault /home/me/notes
+claude mcp add --scope user --transport stdio everkeep -- npx --yes --package=everkeep everkeep
 ```
+
+After `everkeep init`; without it, add `--vault DIR` at the end.
 
 ## Other clients
 

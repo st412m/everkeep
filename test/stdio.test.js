@@ -92,5 +92,5 @@ test('CLI: stdio without a vault exits 1 with a message on stderr only', { skip:
   child.stdin.end();
   assert.equal(await new Promise(r => child.on('exit', r)), 1);
   assert.equal(stdout, '');
-  assert.equal(stderr, 'everkeep: no vault: pass --vault DIR, set env EVERKEEP_VAULT or "vault" in the config file\n');
+  assert.equal(stderr, 'everkeep: no vault: run everkeep init once, or pass --vault DIR, set env EVERKEEP_VAULT or "vault" in the config file\n');
 });

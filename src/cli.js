@@ -264,7 +264,7 @@ async function checkConfigCommand(rest) {
   out.push(`config file: ${loaded.file ? `${loaded.file} (${loaded.fileSource})` : `none (looked in ${loaded.searched.join(', ')})`}`);
 
   if (!s.vault) {
-    problems.push('no vault: pass --vault DIR, set env EVERKEEP_VAULT or "vault" in the config file');
+    problems.push('no vault: run everkeep init once, or pass --vault DIR, set env EVERKEEP_VAULT or "vault" in the config file');
     out.push('vault: none');
   } else {
     let kind = 'missing';

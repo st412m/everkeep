@@ -35,3 +35,7 @@ To keep the vault on its own internal or USB drive, add the drive in Home Assist
 Write policies limit only what the AI does through Everkeep's tools. Files you put in, change or delete yourself — by copying, over a share or with a sync program — are not limited by them.
 
 A file you delete over a network share does not go to the vault's trash, and Windows does not move files deleted from a network share to its Recycle Bin: the file is gone. To discard a file you may want back, let the assistant do it with `trash_file`.
+
+## The instruction file
+
+At the start of a session Everkeep tells the assistant to read `CLAUDE.md` at the vault root, or `AGENTS.md` when there is no `CLAUDE.md`. Edit that file to tell the assistant how your vault is organised. `everkeep init` writes a starter one: the assistant asks what you want to keep, starts with an `inbox/` folder and a `log.md`, and proposes a folder for a subject once a few notes share it, after you agree. Everkeep itself never creates or changes these files.

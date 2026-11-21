@@ -46,7 +46,7 @@ test('lookup: no file anywhere means flags and env only', () => {
   assert.equal(r.file, null);
   assert.deepEqual(r.searched, [s.userCfg]);
   assert.equal(r.settings.vault, null);
-  assert.throws(() => C.requireVault(r), /no vault: pass --vault DIR, set env EVERKEEP_VAULT or "vault" in the config file/);
+  assert.throws(() => C.requireVault(r), /no vault: run everkeep init once, or pass --vault DIR, set env EVERKEEP_VAULT or "vault" in the config file/);
 });
 
 test('lookup: EVERKEEP_CONFIG naming a missing file is an error, not a fallback', () => {
