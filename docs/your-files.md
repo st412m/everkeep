@@ -28,6 +28,10 @@ When Everkeep runs in Docker on a Linux server, it works as user id 1000. It can
 
 The [ha-filesystem-mcp](https://github.com/st412m/ha-filesystem-mcp) app works on the folder set in its option `vault_path`, under `/media` or `/share`. To reach that folder from your computer, install the [Samba share](https://github.com/home-assistant/addons/blob/master/samba/DOCS.md) app of Home Assistant: it shares `media` and `share` on your network, and the vault is the folder inside it named in `vault_path` (for `/media/VAULT`, the folder `VAULT` in the share `media`). Any other app with access to `/media` or `/share` works as well.
 
+To keep the vault on its own internal or USB drive, add the drive in Home Assistant under Settings > System > Storage > Add storage, with the type Local disk and the usage Media (Home Assistant 2026.11 or later). A drive added with the name `VAULT` appears as `/media/VAULT`, the default `vault_path`. The drive must already be formatted; the supported file systems are listed in [local disk storage](https://www.home-assistant.io/common-tasks/os/#local-disk-storage). On older versions, any app that mounts the drive under `/media` works.
+
 ## Your files and the write policies
 
 Write policies limit only what the AI does through Everkeep's tools. Files you put in, change or delete yourself — by copying, over a share or with a sync program — are not limited by them.
+
+A file you delete over a network share does not go to the vault's trash, and Windows does not move files deleted from a network share to its Recycle Bin: the file is gone. To discard a file you may want back, let the assistant do it with `trash_file`.
