@@ -242,4 +242,5 @@ function ensureStateDir(dir) {
 module.exports = {
   DEFAULTS, PAGE_DEFAULTS, ConfigError,
   platformRefusal, parseConfig, configCandidates, loadConfig, requireVault, ensureStateDir, assertStateOutsideVault,
+  readConfigFile,
 };

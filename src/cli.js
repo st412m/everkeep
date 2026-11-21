@@ -5,6 +5,7 @@
 
 const { execFile } = require('child_process');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const { parseArgs } = require('util');
 const C = require('./config');
@@ -20,6 +21,10 @@ Usage:
                                --new replaces the token
   everkeep check-config [--vault DIR]
                                validate the settings and the toolchain
+  everkeep init [DIR] [--agent claude|other]
+                               create a vault (default ~/everkeep) with an
+                               instruction file and a starter policy, and
+                               save it as the default vault
   everkeep policy show [DIR] [--vault DIR]
                                the policy in force at DIR (default: the vault root)
                                and every marker below it
@@ -469,6 +474,150 @@ function policyCommand(rest) {
 }
 
 // ---------------------------------------------------------------------------
+// init
+// ---------------------------------------------------------------------------
+
+const AGENT_QUESTION = 'Which assistant will use this vault? 1) Claude (Claude Code, Claude Desktop, claude.ai)  2) another (Codex, Cursor, …) [1]: ';
+
+// Asks on stderr, reads answers from stdin: empty or 1 → claude, 2 → other;
+// after 3 unusable answers, or when stdin ends, claude.
+function askAgent() {
+  const readline = require('readline');
+  const rl = readline.createInterface({ input: process.stdin, output: process.stderr });
+  return new Promise(resolve => {
+    let tries = 0, done = false;
+    const finish = agent => { if (done) return; done = true; rl.close(); resolve(agent); };
+    rl.on('close', () => finish('claude'));
+    const ask = () => rl.question(AGENT_QUESTION, answer => {
+      const a = answer.trim();
+      if (a === '' || a === '1') return finish('claude');
+      if (a === '2') return finish('other');
+      if (++tries >= 3) return finish('claude');
+      ask();
+    });
+    ask();
+  });
+}
+
+const READY_CLAUDE = [
+  'Claude Code:',
+  '  claude mcp add --scope user --transport stdio everkeep -- npx --yes --package=everkeep everkeep',
+  'Claude Desktop (claude_desktop_config.json, "mcpServers"):',
+  '  "everkeep": { "command": "npx", "args": ["--yes", "--package=everkeep", "everkeep"] }',
+  'claude.ai and other HTTP clients: run `everkeep serve`, then `everkeep token` for the connector path.',
+];
+const READY_OTHER = [
+  'Any MCP client over stdio:',
+  '  command: npx   args: --yes --package=everkeep everkeep',
+  'HTTP clients: run `everkeep serve`, then `everkeep token` for the connector path.',
+];
+
+// Creates a vault with an instruction file and a starter policy and saves it
+// as the default vault. Every check runs before anything is created; nothing
+// that exists is changed.
+async function initCommand(rest, { env = process.env, homedir = os.homedir(), interactive = !!(process.stdin.isTTY && process.stdout.isTTY) } = {}) {
+  let parsed;
+  try {
+    parsed = parseArgs({ args: rest, options: { agent: { type: 'string' } }, allowPositionals: true });
+  } catch (e) {
+    return usageError(e.message);
+  }
+  const { values, positionals } = parsed;
+  if (positionals.length > 1) return usageError(`unexpected argument "${positionals[1]}"`);
+  if (values.agent !== undefined && !['claude', 'other'].includes(values.agent))
+    return usageError('--agent must be claude or other');
+
+  const refuse = msg => { say(msg); return 1; };
+
+  if (env.EVERKEEP_CONFIG)
+    return refuse(`EVERKEEP_CONFIG is set (${env.EVERKEEP_CONFIG}): add "vault" to that file yourself; init writes only ~/.config/everkeep/config.json`);
+
+  const dir = positionals.length ? path.resolve(positionals[0]) : path.join(homedir, 'everkeep');
+  if (dir === path.resolve(homedir)) return refuse(`${dir} is the home folder — give a folder of its own, e.g. ~/everkeep`);
+  if (path.parse(dir).root === dir) return refuse(`${dir} is a filesystem root — give a folder of its own, e.g. ~/everkeep`);
+
+  let dirStat = null;
+  try { dirStat = fs.statSync(dir); } catch (e) { if (e.code !== 'ENOENT') throw e; }
+  if (dirStat && !dirStat.isDirectory()) return refuse(`${dir} exists and is not a directory`);
+
+  const cfg = path.join(homedir, '.config', 'everkeep', 'config.json');
+  let current = null;
+  let saveVault = true;
+  if (fs.existsSync(cfg)) {
+    try { current = C.readConfigFile(cfg); } catch (e) {
+      if (e.name !== 'ConfigError') throw e;
+      return refuse(e.message);
+    }
+    const vault = current && typeof current === 'object' && !Array.isArray(current) ? current.vault : undefined;
+    if (typeof vault === 'string') {
+      if (path.resolve(vault) !== dir)
+        return refuse(`${cfg} already names the vault ${vault}; init does not change it. To use ${dir}, edit that file, or run everkeep with --vault ${dir}`);
+      saveVault = false;
+    }
+  }
+
+  try {
+    const state = C.loadConfig({ env, homedir, flags: { vault: dir } }).settings.state_dir;
+    C.assertStateOutsideVault(state, dir);
+  } catch (e) {
+    if (e.name !== 'ConfigError') throw e;
+    return refuse(e.message);
+  }
+
+  const agent = values.agent || (interactive ? await askAgent() : 'claude');
+
+  fs.mkdirSync(dir, { recursive: true });
+  say(`vault: ${dir} (${dirStat ? 'exists' : 'created'})`);
+
+  const present = p => { try { fs.lstatSync(p); return true; } catch (e) { if (e.code === 'ENOENT') return false; throw e; } };
+  const name = agent === 'claude' ? 'CLAUDE.md' : 'AGENTS.md';
+  const existing = ['CLAUDE.md', 'AGENTS.md'].find(n => present(path.join(dir, n)));
+  let wroteInstructions = false;
+  if (existing) {
+    say(`instruction file: ${existing} exists, left as it is`);
+  } else {
+    try {
+      fs.writeFileSync(path.join(dir, name), require('./starter').STARTER_TEXT, { flag: 'wx' });
+      wroteInstructions = true;
+      say(`instruction file: ${name} (written)`);
+    } catch (e) {
+      if (e.code !== 'EEXIST') throw e;
+      say(`instruction file: ${name} exists, left as it is`);
+    }
+  }
+
+  const markerFile = path.join(dir, require('./policy').POLICY_FILE);
+  if (present(markerFile)) {
+    say(`policy: ${markerFile} exists, left as it is`);
+  } else {
+    const P = require('./policy');
+    const SP = require('./safepath');
+    const W = require('./policy-write');
+    const R = SP.createResolver(dir);
+    P.setEditorMode('off');
+    const setArgs = parseSetArgs(['.', '--mode', 'rev', '--trash']);
+    const target = W.targetDir(R, dir);
+    const change = changeFromFlags(setArgs, P.policyAt(target, R.root).policy);
+    W.writeMarker(R, target, W.specOf(change, W.contextOf(R, target)), 'off');
+    say('policy: edits need the current rev, trash on (written)');
+  }
+
+  if (!saveVault) {
+    say(`default vault: ${cfg} already names it`);
+  } else {
+    fs.mkdirSync(path.dirname(cfg), { recursive: true });
+    const obj = current ? { ...current, vault: dir } : { vault: dir };
+    fs.writeFileSync(cfg, JSON.stringify(obj, null, 2) + '\n');
+    say(`default vault: saved in ${cfg}`);
+  }
+
+  process.stdout.write('\n' + (agent === 'claude' ? READY_CLAUDE : READY_OTHER).join('\n') + '\n');
+  if (wroteInstructions)
+    say(agent === 'claude' ? 'instruction file for another assistant: everkeep init --agent other' : 'instruction file for Claude: everkeep init --agent claude');
+  return 0;
+}
+
+// ---------------------------------------------------------------------------
 
 async function main(argv) {
   const [cmd, ...rest] = argv;
@@ -483,6 +632,7 @@ async function main(argv) {
     if (cmd === 'serve') return await serveCommand(rest);
     if (cmd === 'token') return tokenCommand(rest);
     if (cmd === 'check-config') return await checkConfigCommand(rest);
+    if (cmd === 'init') return await initCommand(rest);
     if (cmd === 'policy') return policyCommand(rest);
   } catch (e) {
     if (e.name !== 'ConfigError') throw e;
@@ -499,4 +649,4 @@ if (require.main === module) {
   );
 }
 
-module.exports = { main, USAGE, parseSetArgs, changeFromFlags };
+module.exports = { main, USAGE, parseSetArgs, changeFromFlags, initCommand };
