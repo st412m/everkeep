@@ -38,12 +38,6 @@ class ConfigError extends Error {
   }
 }
 
-// Path checks are written and tested for Linux only.
-function platformRefusal(platform = process.platform) {
-  if (platform === 'win32') return 'Windows is not supported natively (path checks are Linux-only); run Everkeep in Docker';
-  return null;
-}
-
 function envValue(env, name) {
   const v = env[name];
   return v === undefined || v === '' ? undefined : v;
@@ -240,6 +234,6 @@ function ensureStateDir(dir) {
 
 module.exports = {
   DEFAULTS, PAGE_DEFAULTS, ConfigError,
-  platformRefusal, parseConfig, configCandidates, loadConfig, requireVault, ensureStateDir, assertStateOutsideVault,
+  parseConfig, configCandidates, loadConfig, requireVault, ensureStateDir, assertStateOutsideVault,
   readConfigFile,
 };

@@ -88,7 +88,6 @@ Every message starts with `everkeep:`; the exit code is 1 (2 for a wrong command
 - `state_dir … is not writable by this process` — the message names the user ids; in Docker, `/data` must belong to the user the container runs as.
 - `token from env EVERKEEP_TOKEN: the token is too short …` — a token you set yourself breaks the rules; unset it and let the server generate one.
 - `cannot listen on 127.0.0.1:3100 (EADDRINUSE)` — another program, or another Everkeep, uses the port.
-- `Windows is not supported natively …` — run it in Docker.
 - The process dies with `Illegal instruction` when it reads a PDF — the CPU has no AVX and the optional `@napi-rs/canvas` is installed; reinstall without it, see [installation](installation.md#a-permanent-command-and-cpus-without-avx).
 
 ## Documents

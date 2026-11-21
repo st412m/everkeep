@@ -7,7 +7,7 @@ const fs = require('fs');
 const path = require('path');
 const { initCommand } = require('../src/cli.js');
 const { STARTER_TEXT } = require('../src/starter.js');
-const { tmpDir, writeJson, SKIP_CLI, isolatedEnv } = require('./helpers.js');
+const { tmpDir, writeJson, isolatedEnv } = require('./helpers.js');
 
 // Runs init in-process with stdout and stderr captured.
 async function run(args, home, extraEnv = {}) {
@@ -42,7 +42,7 @@ function snapshot(dir) {
 
 const MARKER = JSON.stringify({ _: 'test marker', readonly: false, overwrite: 'free' }, null, 2) + '\n';
 
-test('fresh home, no args: CLAUDE.md, rev marker with trash, config saved', { skip: SKIP_CLI }, async () => {
+test('fresh home, no args: CLAUDE.md, rev marker with trash, config saved', async () => {
   const home = tmpDir();
   const vault = path.join(home, 'everkeep');
   const r = await run([], home);
@@ -56,7 +56,7 @@ test('fresh home, no args: CLAUDE.md, rev marker with trash, config saved', { sk
   assert.match(r.stdout, /claude mcp add --scope user --transport stdio everkeep/);
 });
 
-test('--agent other: AGENTS.md', { skip: SKIP_CLI }, async () => {
+test('--agent other: AGENTS.md', async () => {
   const home = tmpDir();
   const vault = path.join(home, 'everkeep');
   const r = await run(['--agent', 'other'], home);
@@ -66,7 +66,7 @@ test('--agent other: AGENTS.md', { skip: SKIP_CLI }, async () => {
   assert.match(r.stdout, /Any MCP client over stdio/);
 });
 
-test('explicit DIR with CLAUDE.md and a marker: both left as they are', { skip: SKIP_CLI }, async () => {
+test('explicit DIR with CLAUDE.md and a marker: both left as they are', async () => {
   const home = tmpDir();
   const vault = path.join(home, 'notes');
   fs.mkdirSync(vault);
@@ -81,7 +81,7 @@ test('explicit DIR with CLAUDE.md and a marker: both left as they are', { skip: 
   assert.equal(exists(path.join(vault, 'AGENTS.md')), false);
 });
 
-test('existing AGENTS.md, --agent claude: no CLAUDE.md', { skip: SKIP_CLI }, async () => {
+test('existing AGENTS.md, --agent claude: no CLAUDE.md', async () => {
   const home = tmpDir();
   const vault = path.join(home, 'everkeep');
   fs.mkdirSync(vault);
@@ -93,7 +93,7 @@ test('existing AGENTS.md, --agent claude: no CLAUDE.md', { skip: SKIP_CLI }, asy
   assert.ok(fs.readFileSync(path.join(vault, 'AGENTS.md')).equals(agents));
 });
 
-test('second run on the same home changes nothing', { skip: SKIP_CLI }, async () => {
+test('second run on the same home changes nothing', async () => {
   const home = tmpDir();
   const vault = path.join(home, 'everkeep');
   assert.equal((await run([], home)).code, 0);
@@ -107,7 +107,7 @@ test('second run on the same home changes nothing', { skip: SKIP_CLI }, async ()
   assert.match(r.stderr, /already names it/);
 });
 
-test('DIR is the home folder or a filesystem root: refused, nothing created', { skip: SKIP_CLI }, async () => {
+test('DIR is the home folder or a filesystem root: refused, nothing created', async () => {
   const home = tmpDir();
   let r = await run([home], home);
   assert.equal(r.code, 1);
@@ -118,7 +118,7 @@ test('DIR is the home folder or a filesystem root: refused, nothing created', { 
   assert.deepEqual(fs.readdirSync(home), []);
 });
 
-test('config naming another vault: refused, file unchanged', { skip: SKIP_CLI }, async () => {
+test('config naming another vault: refused, file unchanged', async () => {
   const home = tmpDir();
   writeJson(cfgOf(home), { vault: '/somewhere/else', port: 3200 });
   const cfg = fs.readFileSync(cfgOf(home));
@@ -128,7 +128,7 @@ test('config naming another vault: refused, file unchanged', { skip: SKIP_CLI },
   assert.equal(exists(path.join(home, 'everkeep')), false);
 });
 
-test('config without a vault: the vault is added, other keys kept', { skip: SKIP_CLI }, async () => {
+test('config without a vault: the vault is added, other keys kept', async () => {
   const home = tmpDir();
   writeJson(cfgOf(home), { port: 3200 });
   const r = await run([], home);
@@ -136,20 +136,20 @@ test('config without a vault: the vault is added, other keys kept', { skip: SKIP
   assert.deepEqual(readJson(cfgOf(home)), { port: 3200, vault: path.join(home, 'everkeep') });
 });
 
-test('EVERKEEP_CONFIG set: refused, nothing created', { skip: SKIP_CLI }, async () => {
+test('EVERKEEP_CONFIG set: refused, nothing created', async () => {
   const home = tmpDir();
   const r = await run([], home, { EVERKEEP_CONFIG: path.join(home, 'elsewhere.json') });
   assert.equal(r.code, 1);
   assert.deepEqual(fs.readdirSync(home), []);
 });
 
-test('--agent with an unknown value: usage error', { skip: SKIP_CLI }, async () => {
+test('--agent with an unknown value: usage error', async () => {
   const home = tmpDir();
   const r = await run(['--agent', 'bogus'], home);
   assert.equal(r.code, 2);
 });
 
-test('DIR is a regular file: refused', { skip: SKIP_CLI }, async () => {
+test('DIR is a regular file: refused', async () => {
   const home = tmpDir();
   const file = path.join(home, 'note.md');
   fs.writeFileSync(file, 'hello\n');

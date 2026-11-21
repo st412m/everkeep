@@ -644,9 +644,6 @@ async function main(argv) {
   if (cmd === '--version' || cmd === '-v') { process.stdout.write(VERSION + '\n'); return 0; }
   if (cmd === '--help' || cmd === '-h' || cmd === 'help') { process.stdout.write(USAGE); return 0; }
 
-  const refusal = C.platformRefusal();
-  if (refusal) { say(refusal); return 1; }
-
   try {
     if (cmd === undefined || cmd.startsWith('-')) return await stdioCommand(argv);
     if (cmd === 'serve') return await serveCommand(rest);

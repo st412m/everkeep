@@ -203,8 +203,7 @@ test('a marker on disk as .VAULT-POLICY is written over in place, never joined b
   assert.throws(() => W.targetDir(R, J('upper', '.Vault-Policy')), /a path through \.vault-policy cannot hold a marker/);
   assert.throws(() => W.targetDir(R, J('wiki', '.VAULT-TRASH')), /is in the trash/);
 
-  const { NATIVE, CLI, isolatedEnv } = require('./helpers.js');
-  if (!NATIVE) return;
+  const { CLI, isolatedEnv } = require('./helpers.js');
   const { spawnSync } = require('child_process');
   const env = isolatedEnv(fs.mkdtempSync(path.join(MOUNT, 'everkeep-home-')), { EVERKEEP_VAULT: V });
   try {

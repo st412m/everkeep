@@ -32,7 +32,7 @@ A request body element that is not a JSON object gets `-32600`.
 
 | File | Responsibility |
 |---|---|
-| `src/cli.js` | the commands: `serve`, stdio, `token`, `check-config`, `policy`; refuses Windows |
+| `src/cli.js` | the commands: `serve`, stdio, `token`, `check-config`, `policy` |
 | `src/config.js` | flags, environment and config file; the state directory; writes nothing |
 | `src/token.js` | where the token comes from, generation, the 0600 file, `--new` |
 | `src/http.js` | the token check, Host/Origin on a local address, Streamable HTTP, the request log |

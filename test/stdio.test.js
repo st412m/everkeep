@@ -7,7 +7,7 @@ const path = require('path');
 const { PassThrough } = require('stream');
 const S = require('../src/server.js');
 const { serveStdio } = require('../src/stdio.js');
-const { tmpDir, CLI, SKIP_CLI, isolatedEnv } = require('./helpers.js');
+const { tmpDir, CLI, isolatedEnv, caseSuffix } = require('./helpers.js');
 
 const V = tmpDir();
 fs.writeFileSync(path.join(V, 'a.md'), 'hello\n');
@@ -60,7 +60,7 @@ test('a text with newlines stays on one line', async () => {
   assert.equal(JSON.parse(out).result.content[0].text, 'one\ntwo\r\nthree\n');
 });
 
-test('CLI: `everkeep` on stdio prints nothing but protocol on stdout', { skip: SKIP_CLI }, async () => {
+test('CLI: `everkeep` on stdio prints nothing but protocol on stdout', async () => {
   const home = tmpDir();
   const child = spawn(process.execPath, [CLI], { env: isolatedEnv(home, { EVERKEEP_VAULT: V }) });
   let stdout = '', stderr = '';
@@ -78,12 +78,12 @@ test('CLI: `everkeep` on stdio prints nothing but protocol on stdout', { skip: S
   assert.deepEqual(msgs.map(m => m.id).sort(), [1, 2, 3]);
   assert.equal(msgs.find(m => m.id === 2).result.tools.length, 20);
   assert.match(msgs.find(m => m.id === 3).result.content[0].text, /a\.md · rev [0-9a-f]{8} · 1 lines\n {2}1: hello/);
-  assert.match(stderr, new RegExp(`^everkeep ${require('../package.json').version.replace(/\./g, '\\.')} on stdio, vault ${V.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}, doclines \\d+\\.\\d+\\.\\d+$`, 'm'));
+  assert.match(stderr, new RegExp(`^everkeep ${require('../package.json').version.replace(/\./g, '\\.')} on stdio, vault ${(V + caseSuffix(V)).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}, doclines \\d+\\.\\d+\\.\\d+$`, 'm'));
   assert.ok(fs.existsSync(path.join(home, '.local', 'state', 'everkeep')), 'state dir created');
   assert.equal(fs.existsSync(path.join(home, '.local', 'state', 'everkeep', 'token')), false, 'stdio needs no token');
 });
 
-test('CLI: stdio without a vault exits 1 with a message on stderr only', { skip: SKIP_CLI }, async () => {
+test('CLI: stdio without a vault exits 1 with a message on stderr only', async () => {
   const home = tmpDir();
   const child = spawn(process.execPath, [CLI], { env: isolatedEnv(home) });
   let stdout = '', stderr = '';

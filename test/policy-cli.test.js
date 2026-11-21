@@ -1,14 +1,14 @@
 'use strict';
-// `everkeep policy show|set|clear`, run as a user would. Not on Windows: the
-// CLI refuses to start natively there.
+// `everkeep policy show|set|clear`, run as a user would.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { spawnSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
-const { tmpDir, writeJson, CLI, SKIP_CLI, isolatedEnv } = require('./helpers.js');
+const { tmpDir, writeJson, CLI, isolatedEnv, caseSuffix, symlinkSkip, POSIX_MODES } = require('./helpers.js');
 
-const skip = SKIP_CLI;
+const SYMLINK_SKIP = symlinkSkip();
+
 const TOKEN = 'the Vault policies page (the connector address with /policies in place of /mcp) or `everkeep policy` on the server';
 const HA = 'the Vault policies page in the Home Assistant sidebar';
 const preamble = editor => `Everkeep policy. Applies to this directory and everything below it, until a deeper marker of the same name is met. Managed with ${editor} — edit by hand only to repair it.`;
@@ -43,7 +43,7 @@ function snapshot(dir) {
   return out;
 }
 
-test('set: writes the marker, prints where and the policy now in force', { skip }, () => {
+test('set: writes the marker, prints where and the policy now in force', () => {
   const s = setup();
   const r = run(['set', 'raw', '--mode', 'readonly'], s.env);
   assert.equal(r.code, 0, r.stderr);
@@ -51,7 +51,7 @@ test('set: writes the marker, prints where and the policy now in force', { skip 
   assert.equal(r.stdout, `Saved: ${s.J('raw', '.vault-policy')}\nPolicy: read-only, no trash (deletion not available) — own marker (${s.J('raw', '.vault-policy')})\n`);
   assert.equal(fs.readFileSync(s.J('raw', '.vault-policy'), 'utf8'),
     marker(TOKEN, { readonly: true, overwrite: 'never' }));
-  assert.equal((fs.statSync(s.J('raw', '.vault-policy')).mode & 0o777) & 0o022, 0, 'not group/other-writable');
+  if (POSIX_MODES) assert.equal((fs.statSync(s.J('raw', '.vault-policy')).mode & 0o777) & 0o022, 0, 'not group/other-writable');
 
   const r2 = run(['set', s.J('wiki', 'sub'), '--mode', 'never', '--trash', '.bin', '--purge-days', '7'], s.env);
   assert.equal(r2.code, 0, r2.stderr);
@@ -61,7 +61,7 @@ test('set: writes the marker, prints where and the policy now in force', { skip 
   assert.deepEqual(fs.readdirSync(s.J('wiki', 'sub')).sort(), ['.vault-policy'], 'no temp file left');
 });
 
-test('set: what is not given keeps the value in force, as the page does', { skip }, () => {
+test('set: what is not given keeps the value in force, as the page does', () => {
   const s = setup();
   let r = run(['set', 'wiki', '--mode', 'free'], s.env);
   assert.equal(r.code, 0, r.stderr);
@@ -78,7 +78,7 @@ test('set: what is not given keeps the value in force, as the page does', { skip
   assert.equal(r.stderr, 'everkeep: note: a read-only zone has no trash; --trash is ignored\n');
 });
 
-test('set: the policy editor in the preamble follows policy_page.mode', { skip }, () => {
+test('set: the policy editor in the preamble follows policy_page.mode', () => {
   const s = setup();
   const cfg = writeJson(path.join(s.base, 'c.json'), { vault: s.V, policy_page: { mode: 'ha-ingress' } });
   const r = run(['set', 'raw', '--mode', 'rev'], isolatedEnv(s.home, { EVERKEEP_CONFIG: cfg }));
@@ -87,11 +87,11 @@ test('set: the policy editor in the preamble follows policy_page.mode', { skip }
     marker(HA, { readonly: false, overwrite: 'rev' }));
 });
 
-test('set: invalid input never writes', { skip }, () => {
+test('set: invalid input never writes', () => {
   const s = setup();
   fs.writeFileSync(s.J('wiki', 'file.md'), 'x\n');
   fs.mkdirSync(path.join(s.base, 'outside'));
-  fs.symlinkSync(path.join(s.base, 'outside'), s.J('out-link'), 'dir');
+  if (!SYMLINK_SKIP) fs.symlinkSync(path.join(s.base, 'outside'), s.J('out-link'), 'dir');
   const before = snapshot(s.V);
   const cases = [
     [['set', 'raw', '--mode', 'strict'], 2, /--mode must be one of readonly, rev, free, never/],
@@ -106,10 +106,11 @@ test('set: invalid input never writes', { skip }, () => {
     [['set', 'raw', '--mode', 'rev', '--trash', '..'], 1, /"trash" must not be "\." or "\.\."/],
     [['set', path.join(s.base, 'outside'), '--mode', 'rev'], 1, /PATH_OUTSIDE_VAULT/],
     [['set', '../outside', '--mode', 'rev'], 1, /PATH_OUTSIDE_VAULT/],
-    [['set', 'out-link', '--mode', 'rev'], 1, /PATH_OUTSIDE_VAULT: .*symlink resolves outside the vault/],
+    ...(SYMLINK_SKIP ? [] : [[['set', 'out-link', '--mode', 'rev'], 1, /PATH_OUTSIDE_VAULT: .*symlink resolves outside the vault/]]),
     [['set', 'wiki/.vault-trash', '--mode', 'free'], 1, /is in the trash; a marker cannot go there/],
     [['set', 'wiki/.vault-trash/old', '--mode', 'free'], 1, /is in the trash; a marker cannot go there/],
-    [['set', 'wiki/.Vault-Trash', '--mode', 'free'], 1, /does not exist/],
+    // On a file system that ignores case this is the trash itself.
+    [['set', 'wiki/.Vault-Trash', '--mode', 'free'], 1, caseSuffix(s.V) ? /is in the trash; a marker cannot go there/ : /does not exist/],
     [['set', 'wiki/.vault-policy', '--mode', 'free'], 1, /a path through \.vault-policy cannot hold a marker/],
     [['set', 'wiki/.VAULT-POLICY/x', '--mode', 'free'], 1, /a path through \.vault-policy cannot hold a marker/],
     [['set', 'missing', '--mode', 'free'], 1, /does not exist$/m],
@@ -129,7 +130,7 @@ test('set: invalid input never writes', { skip }, () => {
   assert.deepEqual(fs.readdirSync(path.join(s.base, 'outside')), []);
 });
 
-test('show: the policy at DIR and every marker below it, the text of the listing tools', { skip }, () => {
+test('show: the policy at DIR and every marker below it, the text of the listing tools', () => {
   const s = setup();
   run(['set', 'wiki/sub', '--mode', 'never'], s.env);
   let r = run(['show'], s.env);
@@ -149,7 +150,7 @@ test('show: the policy at DIR and every marker below it, the text of the listing
   assert.equal(r.stdout, `Policy: none — unrestricted (no .vault-policy marker above this directory).\n\nNo markers at or below ${s.J('raw')}.\n`);
 });
 
-test('clear: removes a regular marker only; a missing one is not an error', { skip }, () => {
+test('clear: removes a regular marker only; a missing one is not an error', () => {
   const s = setup();
   run(['set', 'wiki/sub', '--mode', 'never'], s.env);
   let r = run(['clear', 'wiki/sub'], s.env);
@@ -168,12 +169,14 @@ test('clear: removes a regular marker only; a missing one is not an error', { sk
   assert.equal(r.stderr, `everkeep: ${s.J('raw', '.vault-policy')} is not a regular file (a directory or a symlink); nothing was removed — fix it on disk\n`);
   assert.ok(fs.statSync(s.J('raw', '.vault-policy')).isDirectory());
   fs.rmdirSync(s.J('raw', '.vault-policy'));
-  fs.symlinkSync(s.J('wiki', '.vault-policy'), s.J('raw', '.vault-policy'));
-  r = run(['clear', 'raw'], s.env);
-  assert.equal(r.code, 1);
-  assert.match(r.stderr, /is not a regular file \(a directory or a symlink\); nothing was removed — fix it on disk/);
-  assert.ok(fs.lstatSync(s.J('raw', '.vault-policy')).isSymbolicLink());
-  assert.ok(fs.existsSync(s.J('wiki', '.vault-policy')));
+  if (!SYMLINK_SKIP) {
+    fs.symlinkSync(s.J('wiki', '.vault-policy'), s.J('raw', '.vault-policy'));
+    r = run(['clear', 'raw'], s.env);
+    assert.equal(r.code, 1);
+    assert.match(r.stderr, /is not a regular file \(a directory or a symlink\); nothing was removed — fix it on disk/);
+    assert.ok(fs.lstatSync(s.J('raw', '.vault-policy')).isSymbolicLink());
+    assert.ok(fs.existsSync(s.J('wiki', '.vault-policy')));
+  }
 
   // In the trash or through a marker name: refused like set.
   r = run(['clear', 'wiki/.vault-trash'], s.env);
@@ -181,7 +184,7 @@ test('clear: removes a regular marker only; a missing one is not an error', { sk
   assert.match(r.stderr, /is in the trash/);
 });
 
-test('a running server sees the new marker on the next call', { skip }, async () => {
+test('a running server sees the new marker on the next call', async () => {
   const s = setup();
   const S = require('../src/server.js');
   S.init(s.V);
@@ -194,7 +197,7 @@ test('a running server sees the new marker on the next call', { skip }, async ()
   assert.equal(l.content[0].text.split('\n')[0], run(['show', 'raw'], s.env).stdout.split('\n')[0]);
 });
 
-test('--vault: overrides EVERKEEP_VAULT for show, set and clear; DIR is relative to it', { skip }, () => {
+test('--vault: overrides EVERKEEP_VAULT for show, set and clear; DIR is relative to it', () => {
   const s = setup();
   const other = path.join(s.base, 'other');
   fs.mkdirSync(path.join(other, 'raw'), { recursive: true });
@@ -220,7 +223,7 @@ test('--vault: overrides EVERKEEP_VAULT for show, set and clear; DIR is relative
   }
 });
 
-test('set: --purge-days on a shared trash is not written and says why', { skip }, () => {
+test('set: --purge-days on a shared trash is not written and says why', () => {
   const s = setup();
   const r = run(['set', 'wiki/sub', '--mode', 'rev', '--purge-days', '3'], s.env);
   assert.equal(r.code, 0, r.stderr);

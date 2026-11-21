@@ -20,13 +20,36 @@ function writeJson(file, obj) {
 
 const CLI = path.join(__dirname, '..', 'src', 'cli.js');
 
-// The CLI refuses to start natively on Windows.
-const NATIVE = process.platform !== 'win32';
-const SKIP_CLI = NATIVE ? false : 'the CLI refuses to start natively on Windows; these tests run on Linux and macOS';
-
-// An environment that cannot pick up the real config, state dir or token.
-function isolatedEnv(home, extra = {}) {
-  return { PATH: process.env.PATH, HOME: home, ...extra };
+// What the start line and check-config add after the vault for its letter
+// case: nothing on a case-sensitive file system (Linux; NTFS and APFS ignore
+// case by default).
+function caseSuffix(vault) {
+  const SP = require('../src/safepath.js');
+  const probe = SP.probeCase(vault);
+  return probe === 'sensitive' ? '' : `, ${SP.caseNote(probe)}`;
 }
 
-module.exports = { tmpDir, writeJson, CLI, NATIVE, SKIP_CLI, isolatedEnv };
+// A skip reason when this process cannot create symlinks (on Windows that
+// needs Developer Mode or admin rights), false otherwise.
+function symlinkSkip() {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'everkeep-link-'));
+  try {
+    fs.symlinkSync(dir, path.join(dir, 'link'), 'dir');
+    return false;
+  } catch {
+    return 'creating symlinks is not permitted here (on Windows: Developer Mode or admin rights)';
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+// NTFS has no POSIX file modes.
+const POSIX_MODES = process.platform !== 'win32';
+
+// An environment that cannot pick up the real config, state dir or token.
+// os.homedir() reads HOME on Linux and macOS, USERPROFILE on Windows.
+function isolatedEnv(home, extra = {}) {
+  return { PATH: process.env.PATH, HOME: home, USERPROFILE: home, ...extra };
+}
+
+module.exports = { tmpDir, writeJson, CLI, isolatedEnv, caseSuffix, symlinkSkip, POSIX_MODES };

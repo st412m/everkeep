@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const { spawn, spawnSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
-const { tmpDir, writeJson, CLI, NATIVE, SKIP_CLI, isolatedEnv } = require('./helpers.js');
+const { tmpDir, writeJson, CLI, isolatedEnv, caseSuffix, POSIX_MODES } = require('./helpers.js');
 
 const VERSION = require('../package.json').version;
 const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -66,16 +66,7 @@ test('--version and --help work everywhere', () => {
   assert.ok(h.stdout.startsWith(`everkeep ${VERSION}\n\nUsage:\n`), h.stdout);
 });
 
-test('native Windows: every command is refused with exit 1', { skip: NATIVE ? 'runs on Windows' : false }, () => {
-  for (const args of [[], ['serve'], ['token'], ['check-config']]) {
-    const r = run(args, { PATH: process.env.PATH });
-    assert.equal(r.code, 1, args.join(' '));
-    assert.equal(r.stdout, '');
-    assert.match(r.stderr, /^everkeep: Windows is not supported natively \(path checks are Linux-only\); run Everkeep in Docker\n$/);
-  }
-});
-
-test('usage errors exit 2', { skip: SKIP_CLI }, () => {
+test('usage errors exit 2', () => {
   const s = setup();
   const env = isolatedEnv(s.home, { EVERKEEP_VAULT: s.vault });
   for (const args of [['nope'], ['serve', '--bogus'], ['serve', '--port', 'x'], ['serve', '--port', '70000'], ['token', '--bogus'], ['check-config', 'x']]) {
@@ -99,7 +90,7 @@ function stdio(args, env, lines) {
   });
 }
 
-test('stdio with --vault: initialize, tools/list = 20, nothing but protocol on stdout', { skip: SKIP_CLI }, async () => {
+test('stdio with --vault: initialize, tools/list = 20, nothing but protocol on stdout', async () => {
   const s = setup();
   const r = await stdio(['--vault', s.vault], isolatedEnv(s.home), [
     INIT,
@@ -113,10 +104,10 @@ test('stdio with --vault: initialize, tools/list = 20, nothing but protocol on s
   assert.equal(byId[1].result.serverInfo.name, 'everkeep');
   assert.equal(byId[2].result.tools.length, 20);
   assert.equal(byId[3].result.content[0].text, `Allowed directories:\n${s.vault}`);
-  assert.equal(r.stderr, `everkeep ${VERSION} on stdio, vault ${s.vault}, doclines ${require('doclines/package.json').version}\n`);
+  assert.equal(r.stderr, `everkeep ${VERSION} on stdio, vault ${s.vault}${caseSuffix(s.vault)}, doclines ${require('doclines/package.json').version}\n`);
 });
 
-test('stdio: --vault overrides EVERKEEP_VAULT', { skip: SKIP_CLI }, async () => {
+test('stdio: --vault overrides EVERKEEP_VAULT', async () => {
   const s = setup();
   const other = path.join(s.base, 'other');
   fs.mkdirSync(other);
@@ -128,7 +119,7 @@ test('stdio: --vault overrides EVERKEEP_VAULT', { skip: SKIP_CLI }, async () => 
   assert.equal(JSON.parse(r.stdout).result.content[0].text, `Allowed directories:\n${other}`);
 });
 
-test('stdio: any other flag is a usage error, exit 2, nothing on stdout', { skip: SKIP_CLI }, async () => {
+test('stdio: any other flag is a usage error, exit 2, nothing on stdout', async () => {
   const s = setup();
   const env = isolatedEnv(s.home, { EVERKEEP_VAULT: s.vault });
   for (const args of [['--port', '1'], ['--host', '0.0.0.0'], ['--token-file', 'x'], ['--bogus'], ['--vault', s.vault, '--port', '1'], ['--vault', s.vault, 'extra']]) {
@@ -139,7 +130,7 @@ test('stdio: any other flag is a usage error, exit 2, nothing on stdout', { skip
   }
 });
 
-test('serve: no vault, a bad config or a bad token exit 1 and never print the token', { skip: SKIP_CLI }, () => {
+test('serve: no vault, a bad config or a bad token exit 1 and never print the token', () => {
   const s = setup();
   let r = run(['serve', '--port', '0'], isolatedEnv(s.home));
   assert.equal(r.code, 1);
@@ -156,7 +147,7 @@ test('serve: no vault, a bad config or a bad token exit 1 and never print the to
   assert.equal(fs.existsSync(path.join(s.state, 'token')), false);
 });
 
-test('serve: first start generates the token and shows it once; later starts and `check-config` never show it', { skip: SKIP_CLI }, async () => {
+test('serve: first start generates the token and shows it once; later starts and `check-config` never show it', async () => {
   const s = setup();
   const env = isolatedEnv(s.home);
   let st = await serve(['--port', '0', '--vault', s.vault], env);
@@ -165,10 +156,12 @@ test('serve: first start generates the token and shows it once; later starts and
     const file = path.join(s.state, 'token');
     token = fs.readFileSync(file, 'utf8').trim();
     assert.match(token, /^[0-9a-f]{64}$/);
-    assert.equal(fs.statSync(file).mode & 0o777, 0o600);
-    assert.equal(fs.statSync(s.state).mode & 0o777, 0o700);
+    if (POSIX_MODES) {
+      assert.equal(fs.statSync(file).mode & 0o777, 0o600);
+      assert.equal(fs.statSync(s.state).mode & 0o777, 0o700);
+    }
     assert.equal(st.stderr,
-      `everkeep ${VERSION} on 127.0.0.1:${st.port}, vault ${s.vault}, policies token, doclines ${require('doclines/package.json').version}\n` +
+      `everkeep ${VERSION} on 127.0.0.1:${st.port}, vault ${s.vault}${caseSuffix(s.vault)}, policies token, doclines ${require('doclines/package.json').version}\n` +
       'everkeep: policy page: the connector path with /policies in place of /mcp\n' +
       `everkeep: new token generated and saved to ${file}\n` +
       `everkeep: claude.ai connector path: /private_${token}/mcp\n` +
@@ -203,7 +196,7 @@ test('serve: first start generates the token and shows it once; later starts and
   assert.match(c.stdout, new RegExp(`^token: ${esc(path.join(s.state, 'token'))}$`, 'm'));
 });
 
-test('token --new replaces the token and says a running server keeps the old one until restarted', { skip: SKIP_CLI }, () => {
+test('token --new replaces the token and says a running server keeps the old one until restarted', () => {
   const s = setup();
   const env = isolatedEnv(s.home);
   let r = run(['token'], env);
@@ -225,7 +218,7 @@ test('token --new replaces the token and says a running server keeps the old one
   assert.match(withEnv.stderr, /warning: env EVERKEEP_TOKEN is set and takes precedence/);
 });
 
-test('serve: legacy token only inside Home Assistant, with a warning on every start', { skip: SKIP_CLI }, async () => {
+test('serve: legacy token only inside Home Assistant, with a warning on every start', async () => {
   const s = setup();
   const env = isolatedEnv(s.home, { EVERKEEP_TOKEN: 'changeme', EVERKEEP_ALLOW_LEGACY_TOKEN: '1' });
   const refused = run(['serve', '--port', '0', '--vault', s.vault], env);
@@ -243,7 +236,7 @@ test('serve: legacy token only inside Home Assistant, with a warning on every st
   }
 });
 
-test('serve: non-local bind says so on the start line; log_requests masks the token', { skip: SKIP_CLI }, async () => {
+test('serve: non-local bind says so on the start line; log_requests masks the token', async () => {
   const s = setup();
   const token = 'FAKE-token-for-cli-test-0123456789abcdef';
   const tf = path.join(s.base, 'tok');
@@ -251,7 +244,7 @@ test('serve: non-local bind says so on the start line; log_requests masks the to
   const cfg = writeJson(path.join(s.base, 'c.json'), { vault: s.vault, log_requests: true });
   const st = await serve(['--port', '0', '--host', '0.0.0.0', '--token-file', tf], isolatedEnv(s.home, { EVERKEEP_CONFIG: cfg }));
   try {
-    assert.match(st.stderr, /^everkeep \S+ on 0\.0\.0\.0:\d+, vault \S+, policies token, doclines \S+ — non-local bind: no Host\/Origin checks, the token alone protects the server\neverkeep: policy page: the connector path with \/policies in place of \/mcp$/m);
+    assert.match(st.stderr, /^everkeep \S+ on 0\.0\.0\.0:\d+, vault \S+(?:, case-insensitive vault)?, policies token, doclines \S+ — non-local bind: no Host\/Origin checks, the token alone protects the server\neverkeep: policy page: the connector path with \/policies in place of \/mcp$/m);
     await post(st.port, `/private_${token}/mcp`, INIT);
     await new Promise(r => setTimeout(r, 100));
     assert.match(st.stderr, /^\[req\] \S+ \S+ POST \/private_\*\*\*\/mcp -> 200 \d+B pv=- ua="[^"]*"$/m);
@@ -275,7 +268,7 @@ function postWithHost(port, p, body, host) {
   });
 }
 
-test('allowed_hosts: start line and check-config show it; a listed Host passes on 127.0.0.1; a non-local bind notes it is unused', { skip: SKIP_CLI }, async () => {
+test('allowed_hosts: start line and check-config show it; a listed Host passes on 127.0.0.1; a non-local bind notes it is unused', async () => {
   const s = setup();
   const token = 'FAKE-token-for-allowed-hosts-0123456789';
   const tf = path.join(s.base, 'tok');
@@ -284,7 +277,7 @@ test('allowed_hosts: start line and check-config show it; a listed Host passes o
   const env = isolatedEnv(s.home, { EVERKEEP_CONFIG: cfg });
   let st = await serve(['--port', '0', '--token-file', tf], env);
   try {
-    assert.match(st.stderr, /^everkeep \S+ on 127\.0\.0\.1:\d+, vault \S+, policies token, doclines \S+, allowed hosts notes\.example\.ts\.net, notes\.example\.com\neverkeep: policy page: the connector path with \/policies in place of \/mcp$/m);
+    assert.match(st.stderr, /^everkeep \S+ on 127\.0\.0\.1:\d+, vault \S+(?:, case-insensitive vault)?, policies token, doclines \S+, allowed hosts notes\.example\.ts\.net, notes\.example\.com\neverkeep: policy page: the connector path with \/policies in place of \/mcp$/m);
     assert.equal(await postWithHost(st.port, `/private_${token}/mcp`, INIT, 'notes.example.ts.net'), 200);
     assert.equal(await postWithHost(st.port, `/private_${token}/mcp`, INIT, 'evil.example.com'), 403);
   } finally {
@@ -292,7 +285,7 @@ test('allowed_hosts: start line and check-config show it; a listed Host passes o
   }
   st = await serve(['--port', '0', '--host', '0.0.0.0', '--token-file', tf], env);
   try {
-    assert.match(st.stderr, /^everkeep \S+ on 0\.0\.0\.0:\d+, vault \S+, policies token, doclines \S+ — non-local bind: no Host\/Origin checks, the token alone protects the server\neverkeep: policy page: the connector path with \/policies in place of \/mcp$/m);
+    assert.match(st.stderr, /^everkeep \S+ on 0\.0\.0\.0:\d+, vault \S+(?:, case-insensitive vault)?, policies token, doclines \S+ — non-local bind: no Host\/Origin checks, the token alone protects the server\neverkeep: policy page: the connector path with \/policies in place of \/mcp$/m);
     assert.match(st.stderr, /^everkeep: note: allowed_hosts is not used on a non-local bind \(there are no Host\/Origin checks to relax\)$/m);
   } finally {
     await stop(st);
@@ -308,7 +301,7 @@ test('allowed_hosts: start line and check-config show it; a listed Host passes o
   assert.match(r.stderr, /"allowed_hosts": "https:\/\/notes\.example\.com" must be a host name, without a scheme or a path/);
 });
 
-test('check-config: resolved settings, toolchain, exit 0/1, no secrets', { skip: SKIP_CLI }, () => {
+test('check-config: resolved settings, toolchain, exit 0/1, no secrets', () => {
   const s = setup();
   const token = 'FAKE-token-for-check-config-0123456789ab';
   const r = run(['check-config'], isolatedEnv(s.home, { EVERKEEP_VAULT: s.vault, EVERKEEP_TOKEN: token }));
@@ -327,9 +320,9 @@ test('check-config: resolved settings, toolchain, exit 0/1, no secrets', { skip:
   assert.match(bad.stdout, /problems:\n {2}vault \S+missing: missing/);
 });
 
-const ROOT_USER = NATIVE && process.getuid && process.getuid() === 0;
+const ROOT_USER = process.getuid && process.getuid() === 0;
 
-test('serve: a state_dir it cannot write says what to do, no stack trace', { skip: SKIP_CLI || (ROOT_USER ? 'root writes everywhere; runs as an ordinary user' : false) }, () => {
+test('serve: a state_dir it cannot write says what to do, no stack trace', { skip: ROOT_USER ? 'root writes everywhere; runs as an ordinary user' : !POSIX_MODES ? 'a directory mode does not lock the directory on Windows' : false }, () => {
   const s = setup();
   const state = path.join(s.base, 'locked-state');
   fs.mkdirSync(state, { mode: 0o500 });
@@ -346,7 +339,7 @@ test('serve: a state_dir it cannot write says what to do, no stack trace', { ski
   }
 });
 
-test('check-config --vault overrides EVERKEEP_VAULT; unknown flags exit 2', { skip: SKIP_CLI }, () => {
+test('check-config --vault overrides EVERKEEP_VAULT; unknown flags exit 2', () => {
   const s = setup();
   const other = path.join(s.base, 'other');
   fs.mkdirSync(other);
@@ -362,10 +355,10 @@ test('check-config --vault overrides EVERKEEP_VAULT; unknown flags exit 2', { sk
   }
 });
 
-test('case of the vault: check-config and the start line', { skip: SKIP_CLI }, async () => {
+test('case of the vault: check-config and the start line', async () => {
   const s = setup();
   let r = run(['check-config'], isolatedEnv(s.home, { EVERKEEP_VAULT: s.vault }));
-  assert.match(r.stdout, /^vault case: case-sensitive vault$/m);
+  assert.match(r.stdout, new RegExp(`^vault case: ${esc(caseSuffix(s.vault).slice(2) || 'case-sensitive vault')}$`, 'm'));
 
   const empty = path.join(s.base, 'empty');
   fs.mkdirSync(empty);
@@ -392,7 +385,7 @@ test('case of the vault: check-config and the start line', { skip: SKIP_CLI }, a
   }
 });
 
-test('serve: policy page in ha-ingress mode listens on its own port', { skip: SKIP_CLI }, async () => {
+test('serve: policy page in ha-ingress mode listens on its own port', async () => {
   const s = setup();
   const cfg = writeJson(path.join(s.base, 'c.json'), { vault: s.vault, policy_page: { mode: 'ha-ingress', port: 0, users: ['alice'] } });
   const st = await serve(['--port', '0'], isolatedEnv(s.home, { EVERKEEP_CONFIG: cfg }));
