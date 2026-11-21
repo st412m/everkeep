@@ -164,6 +164,16 @@ function createResolver(rootPath) {
   let REAL_ROOT = ROOT;
   try { REAL_ROOT = fs.realpathSync(ROOT); } catch {}
 
+  // The refusal for a path outside ROOT. When the path's first segments name
+  // ROOT itself in another letter case or Unicode form (one file system object,
+  // see samePath), the message shows the spelling to use. Still a refusal.
+  function outside(p, resolved) {
+    const head = resolved.split(path.sep).slice(0, ROOT.split(path.sep).length).join(path.sep);
+    let same = false;
+    try { same = head !== ROOT && samePath(head, ROOT); } catch {}
+    return new Error(`PATH_OUTSIDE_VAULT: ${p}` + (same ? ` (the vault is ${ROOT} — spell the path with that prefix)` : ''));
+  }
+
   function make(p) {
     const b = Object.freeze({ path: p });
     issued.set(b, internal);
@@ -177,7 +187,7 @@ function createResolver(rootPath) {
   function resolveSafe(p) {
     if (typeof p !== 'string' || !p) throw new Error('path must be a non-empty string');
     const resolved = path.resolve(p);
-    if (!inside(resolved, ROOT)) throw new Error(`PATH_OUTSIDE_VAULT: ${p}`);
+    if (!inside(resolved, ROOT)) throw outside(p, resolved);
     let probe = resolved;
     for (;;) {
       try {

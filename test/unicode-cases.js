@@ -91,17 +91,30 @@ module.exports = function unicodeCases(base, skip) {
     t.diagnostic(r.text.split('\n')[0]);
   });
 
-  test('the vault root in NFD: refused, or read inside the vault', { skip }, async t => {
-    const r = await call('read_text_file', { path: path.join(B, NFD(ROOT), 'note.md') });
-    t.diagnostic(`root in NFD → ${r.isError ? r.text.split('\n')[0] : 'read'}`);
-    if (!normInsensitive) assert.ok(r.isError && /PATH_OUTSIDE_VAULT/.test(r.text), r.text);
-    else assert.ok(r.isError ? /PATH_OUTSIDE_VAULT/.test(r.text) : r.text === 'note\n', r.text);
+  // The root in another spelling is refused everywhere; where it is the same
+  // folder, the message names the spelling to use.
+  const HINT = ` (the vault is ${V} — spell the path with that prefix)`;
+
+  test('the vault root in NFD: refused; the hint where it is the same folder', { skip }, async t => {
+    const p = path.join(B, NFD(ROOT), 'note.md');
+    const r = await call('read_text_file', { path: p });
+    t.diagnostic(`root in NFD → ${r.text.split('\n')[0]}`);
+    assert.equal(r.text, `Error: PATH_OUTSIDE_VAULT: ${p}` + (normInsensitive ? HINT : ''));
   });
 
-  test('the vault root in another letter case: refused, or read inside the vault', { skip }, async t => {
-    const r = await call('read_text_file', { path: path.join(B, ROOT.toUpperCase(), 'note.md') });
-    t.diagnostic(`root in upper case → ${r.isError ? r.text.split('\n')[0] : 'read'}`);
-    if (!caseInsensitive) assert.ok(r.isError && /PATH_OUTSIDE_VAULT/.test(r.text), r.text);
-    else assert.ok(r.isError ? /PATH_OUTSIDE_VAULT/.test(r.text) : r.text === 'note\n', r.text);
+  test('the vault root in another letter case: refused; the hint where it is the same folder', { skip }, async t => {
+    const p = path.join(B, ROOT.toUpperCase(), 'note.md');
+    const r = await call('read_text_file', { path: p });
+    t.diagnostic(`root in upper case → ${r.text.split('\n')[0]}`);
+    assert.equal(r.text, `Error: PATH_OUTSIDE_VAULT: ${p}` + (caseInsensitive ? HINT : ''));
+  });
+
+  test('a sibling sharing the name prefix gets no hint', { skip }, async () => {
+    const sib = V + '_old';
+    fs.mkdirSync(sib);
+    fs.writeFileSync(path.join(sib, 'note.md'), 'old\n');
+    const p = path.join(sib, 'note.md');
+    const r = await call('read_text_file', { path: p });
+    assert.equal(r.text, `Error: PATH_OUTSIDE_VAULT: ${p}`);
   });
 };

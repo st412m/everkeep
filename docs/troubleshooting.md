@@ -68,6 +68,7 @@ The refusal starts with `PATH_OUTSIDE_VAULT` when the path is not inside the vau
 - It is a sibling directory whose name starts with the vault's own — `/srv/notes_old` is not inside `/srv/notes`.
 - Something on the way is a symlink leading out of the vault. This is checked against the resolved path, so a symlink that leaves the vault and points back into it is refused too, at the destination of the write.
 - The client uses paths of another setup. In Docker the vault is `/vault`; `list_allowed_directories` shows the root.
+- The path names the vault in another letter case or Unicode form, on a file system that treats them as one folder (macOS, Windows). The message then ends with `(the vault is … — spell the path with that prefix)`; use the spelling it shows.
 
 ## Writes are refused
 
