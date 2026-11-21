@@ -35,6 +35,7 @@ test('server/discover: supported versions, tools capability, serverInfo, cache h
   const r = await S.handleMcpRequest(req(1, 'server/discover'));
   assert.deepEqual(r, { jsonrpc: '2.0', id: 1, result: {
     resultType: 'complete', supportedVersions: ['2026-07-28'], capabilities: { tools: {} },
+    instructions: 'Everkeep: a notes vault — text files and documents in one folder, read and edited through these tools under write policies.',
     ttlMs: 0, cacheScope: 'private', _meta: SERVER_INFO,
   } });
 });

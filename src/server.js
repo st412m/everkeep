@@ -1372,6 +1372,21 @@ const META_VERSION = 'io.modelcontextprotocol/protocolVersion';
 const META_CAPABILITIES = 'io.modelcontextprotocol/clientCapabilities';
 const META_SERVER_INFO = 'io.modelcontextprotocol/serverInfo';
 
+// Server instructions: name the instruction file at the vault root, if any.
+const INSTRUCTION_FILES = ['CLAUDE.md', 'AGENTS.md'];
+const INSTRUCTIONS_NONE = 'Everkeep: a notes vault — text files and documents in one folder, read and edited through these tools under write policies.';
+
+function serverInstructions() {
+  for (const name of INSTRUCTION_FILES) {
+    let st;
+    try { st = fs.statSync(path.join(ALLOWED_DIR, name)); }
+    catch { continue; }
+    if (st.isFile())
+      return `Everkeep: a notes vault. At the start of a session, read ${name} at the vault root with read_text_file and follow it.`;
+  }
+  return INSTRUCTIONS_NONE;
+}
+
 function negotiateProtocolVersion(requested) {
   return LEGACY_PROTOCOL_VERSIONS.includes(requested) ? requested : LEGACY_PROTOCOL_VERSIONS[0];
 }
@@ -1430,7 +1445,7 @@ async function handleModernRequest(body) {
     resultType: 'complete', ...payload, _meta: { [META_SERVER_INFO]: { name: 'everkeep', version: VERSION } },
   } });
   if (method === 'server/discover')
-    return ok({ supportedVersions: MODERN_PROTOCOL_VERSIONS, capabilities: { tools: {} }, ttlMs: 0, cacheScope: 'private' });
+    return ok({ supportedVersions: MODERN_PROTOCOL_VERSIONS, capabilities: { tools: {} }, instructions: serverInstructions(), ttlMs: 0, cacheScope: 'private' });
   if (method === 'tools/list') return ok({ tools: TOOLS, ttlMs: 0, cacheScope: 'private' });
   if (method === 'tools/call') return ok(await toolResult(params));
   return rpcError(id, -32601, `Method not found: ${method}`);
@@ -1449,7 +1464,8 @@ async function handleMcpRequest(body) {
     return { jsonrpc: '2.0', id, result: {
       protocolVersion: negotiateProtocolVersion(params && params.protocolVersion),
       capabilities: { tools: { listChanged: false } },
-      serverInfo: { name: 'everkeep', version: VERSION }
+      serverInfo: { name: 'everkeep', version: VERSION },
+      instructions: serverInstructions()
     }};
   }
 
@@ -1480,7 +1496,7 @@ if (GREP_WORKER) {
 module.exports = {
   init, TOOLS, handleMcpRequest,
   negotiateProtocolVersion, LEGACY_PROTOCOL_VERSIONS, MODERN_PROTOCOL_VERSIONS,
-  isModernRequest, metaVersion, handleModernRequest,
+  isModernRequest, metaVersion, handleModernRequest, serverInstructions,
   // Tests only: the share of the grep time spent extracting documents.
   setGrepDocBudget(ms) { GREP_DOC_BUDGET_MS = ms; },
 };
