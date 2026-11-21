@@ -11,9 +11,9 @@ const S = require('../src/server.js');
 const P = require('../src/policy.js');
 const SP = require('../src/safepath.js');
 const SQLITE = require('../src/sqlite.js');
-const { tmpDir } = require('./helpers.js');
+const { tmpDir, symlinkSkip } = require('./helpers.js');
 
-const POSIX = process.platform === 'win32' ? 'symlinks need a POSIX filesystem; they run on Linux' : false;
+const SYMLINK_SKIP = symlinkSkip();
 
 const base = tmpDir();
 const V = path.join(base, 'vault');
@@ -25,7 +25,7 @@ fs.mkdirSync(V + '_backup');
 fs.writeFileSync(path.join(V + '_backup', 'secret.txt'), 'outside\n');
 fs.mkdirSync(path.join(base, 'outside'));
 fs.writeFileSync(path.join(base, 'outside', 'secret.txt'), 'outside\n');
-if (!POSIX) fs.symlinkSync(path.join(base, 'outside'), J('wiki', 'out-link'), 'dir');
+if (!SYMLINK_SKIP) fs.symlinkSync(path.join(base, 'outside'), J('wiki', 'out-link'), 'dir');
 const R = S.init(V);
 
 async function call(name, args) {
@@ -102,7 +102,7 @@ test('`..` and a sibling sharing the name prefix are outside the vault', async (
   assert.equal(fs.readFileSync(path.join(V + '_backup', 'secret.txt'), 'utf8'), 'outside\n');
 });
 
-test('a symlink out of the vault is refused for reads and writes', { skip: POSIX }, async () => {
+test('a symlink out of the vault is refused for reads and writes', { skip: SYMLINK_SKIP }, async () => {
   for (const [tool, args] of [
     ['read_text_file', { path: J('wiki', 'out-link', 'secret.txt') }],
     ['write_file', { path: J('wiki', 'out-link', 'new.txt'), content: 'x' }],

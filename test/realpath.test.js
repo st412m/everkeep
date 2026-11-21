@@ -1,16 +1,18 @@
 'use strict';
 // Policy by real place (directories reached through a symlink). Needs symlinks,
-// so it is skipped on Windows.
+// so it is skipped where they cannot be created.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-const skip = process.platform === 'win32' ? 'symlink tests need a POSIX filesystem; they run in CI on Linux' : false;
+const { symlinkSkip } = require('./helpers.js');
+
+const skip = symlinkSkip();
 
 // One vault per process, set with init().
-const T = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'everkeep-realpath-')));
+const T = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'everkeep-realpath-')));
 const S = require('../src/server.js');
 S.init(T);
 const P = require('../src/policy.js');

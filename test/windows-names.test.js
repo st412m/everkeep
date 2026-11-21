@@ -58,6 +58,8 @@ test('a resolver in Windows mode refuses those names in any segment, and the two
     assert.throws(() => R.resolveSafe(p), e => e.message === `PATH_WINDOWS_NAME: ${p} — the \\\\?\\ and \\\\.\\ prefixes are not accepted`, p);
   }
   for (const name of ALLOWED) assert.equal(R.resolveSafe(path.join(V, name)).path, path.join(V, name));
+  // An existing name of 8.3 shape that is its own long name is not an alias.
+  assert.equal(R.resolveSafe(path.join(V, 'note.md')).path, path.join(V, 'note.md'));
 });
 
 test('a resolver not in Windows mode leaves those names alone', { skip: WIN ? 'on Windows the file system itself treats these names specially' : false }, () => {

@@ -115,6 +115,19 @@ function windowsNameProblem(name) {
   return null;
 }
 
+// Whether `seg` in the existing directory `dir` is an 8.3 short alias of
+// another name (VAULT-~1 for .vault-policy): the name has the 8.3 shape, opens
+// a file, and is not among the directory's names, which are the long ones. The
+// name checks compare names, so an alias would slip past them.
+function isShortAlias(dir, seg) {
+  if (!/^[^.]{1,8}(\.[^.]{0,3})?$/.test(seg)) return false;
+  try { fs.lstatSync(path.join(dir, seg)); } catch { return false; }
+  // A directory that cannot be listed cannot show the name is its own: refused.
+  let names;
+  try { names = fs.readdirSync(dir); } catch { return true; }
+  return !names.some(n => sameName(n, seg));
+}
+
 function isSafePath(x) {
   return issued.has(x);
 }
@@ -202,9 +215,12 @@ function createResolver(rootPath, { windows = process.platform === 'win32' } = {
     const resolved = path.resolve(p);
     if (!inside(resolved, ROOT)) throw outside(p, resolved);
     if (windows) {
+      let dir = ROOT;
       for (const seg of path.relative(ROOT, resolved).split(path.sep)) {
-        const why = seg && windowsNameProblem(seg);
+        if (!seg) continue;
+        const why = windowsNameProblem(seg) || (isShortAlias(dir, seg) && 'an 8.3 short name; use the full name');
         if (why) throw new Error(`PATH_WINDOWS_NAME: ${p} — "${seg}": ${why}`);
+        dir = path.join(dir, seg);
       }
     }
     let probe = resolved;
