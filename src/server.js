@@ -1157,7 +1157,8 @@ async function callTool(name, args) {
         if (!edit || typeof edit.oldText !== 'string' || typeof edit.newText !== 'string')
           throw new Error('each edit must be an object with string oldText and newText');
         if (!text.includes(edit.oldText)) throw new Error(`oldText not found: "${edit.oldText.slice(0, 60)}"`);
-        text = text.replace(edit.oldText, edit.newText);
+        // A function, not a string: a string replacement expands $&, $`, $' and $$.
+        text = text.replace(edit.oldText, () => edit.newText);
       }
       if (!dry) fs.writeFileSync(p.path, text, 'utf8');
       return [{ type: 'text', text: `${dry ? '[DRY RUN] ' : ''}${edits.length} edit(s) applied to ${p.path} · rev ${rev0} → ${revOf(text)}` }];
