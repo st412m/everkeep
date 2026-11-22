@@ -33,7 +33,9 @@
       "args": [
         "${__dirname}/src/cli.js",
         "--vault",
-        "${user_config.vault}"
+        "${user_config.vault}",
+        "--readonly",
+        "${user_config.readonly_folders}"
       ],
       "env": {
         "EVERKEEP_EXTENSION": "claude-desktop",
@@ -48,6 +50,13 @@
       "description": "The folder for your notes (default: everkeep in your home folder, created on first start). On the first start in a folder that has no CLAUDE.md or AGENTS.md, Everkeep adds a starter CLAUDE.md, and a .vault-policy marker if there is none; it never adds them to that folder again. Other files in the folder are not touched.",
       "default": "${HOME}/everkeep",
       "required": true
+    },
+    "readonly_folders": {
+      "type": "directory",
+      "title": "Read-only folders",
+      "description": "Folders inside the notes folder that Claude may read but not change (sources, archives). On start Everkeep writes a read-only .vault-policy marker into each one that has no marker, and removes it again when the folder leaves this list. A folder with a marker of its own keeps it.",
+      "multiple": true,
+      "required": false
     }
   },
   "tools": [

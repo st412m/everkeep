@@ -189,6 +189,15 @@ function warnMissingVault(vault) {
 // ---------------------------------------------------------------------------
 
 async function stdioCommand(args) {
+  // The extension passes its "Read-only folders" setting after --readonly:
+  // one argument per folder, none when the setting is empty.
+  const extension = extensionMode(process.env);
+  let readonlyFolders = [];
+  const cut = extension ? args.indexOf('--readonly') : -1;
+  if (cut >= 0) {
+    readonlyFolders = args.slice(cut + 1);
+    args = args.slice(0, cut);
+  }
   let opts;
   try {
     opts = parseArgs({ args, options: { vault: { type: 'string' } } }).values;
@@ -198,17 +207,20 @@ async function stdioCommand(args) {
   // Nothing but the protocol on stdout: a stray console.log goes to stderr.
   console.log = console.error;
   console.info = console.error;
-  const extension = extensionMode(process.env);
   const vaultFlag = extension ? extensionVault(opts.vault, { env: process.env, homedir: os.homedir() }) : opts.vault;
   const loaded = load({ vault: vaultFlag });
   const vault = C.requireVault(loaded);
   C.assertStateOutsideVault(loaded.settings.state_dir, vault);
   C.ensureStateDir(loaded.settings.state_dir);
-  if (extension) firstRun(vault, { stateDir: loaded.settings.state_dir, homedir: os.homedir() });
+  if (extension) {
+    firstRun(vault, { stateDir: loaded.settings.state_dir, homedir: os.homedir() });
+    applyReadonlyFolders(vault, readonlyFolders, { stateDir: loaded.settings.state_dir });
+  }
   const S = require('./server');
-  // No page on stdio: refusals name `everkeep policy`.
+  // No page on stdio: refusals name `everkeep policy`, or the extension
+  // settings under Claude Desktop.
   const mode = loaded.settings.policy_page.mode;
-  const R = S.init(vault, { policyMode: mode === 'token' ? 'off' : mode, docs: docsOf(loaded.settings) });
+  const R = S.init(vault, { policyMode: extension ? 'extension' : mode === 'token' ? 'off' : mode, docs: docsOf(loaded.settings) });
   warnMissingVault(vault);
   require('./retention').start(R.root);
   const { serveStdio } = require('./stdio');
@@ -721,10 +733,98 @@ function firstRun(dir, { stateDir, homedir }) {
   const problem = vaultDirProblem(dir, homedir);
   if (problem) throw new C.ConfigError(problem);
   say('first start in this folder: setting it up (once)');
-  setupVault(dir, { agent: 'claude', editorMode: 'off' });
+  setupVault(dir, { agent: 'claude', editorMode: 'extension' });
   real = fs.realpathSync.native(dir);
   const tmp = `${file}.tmp-${process.pid}`;
   fs.writeFileSync(tmp, JSON.stringify({ folders: [...done.filter(f => f !== real), real] }, null, 2) + '\n');
+  fs.renameSync(tmp, file);
+}
+
+// The "Read-only folders" setting: a read-only marker in each listed folder
+// that has none. The markers the extension wrote are remembered by content in
+// the state dir; one whose folder leaves the list is removed if it is still
+// the text the extension wrote. A marker the person set (the policies page,
+// everkeep policy, by hand), or one changed since, is never touched. A folder
+// that cannot hold a marker is skipped with a line on stderr.
+const READONLY_FILE = 'readonly-folders.json';
+
+function applyReadonlyFolders(vault, given, { stateDir }) {
+  const crypto = require('crypto');
+  const P = require('./policy');
+  const SP = require('./safepath');
+  const W = require('./policy-write');
+  const file = path.join(stateDir, READONLY_FILE);
+  let all = {};
+  try { all = JSON.parse(fs.readFileSync(file, 'utf8')); } catch (e) {
+    if (e.code !== 'ENOENT') throw new C.ConfigError(`${file}: not the record of read-only markers everkeep writes; delete it and restart (markers already on disk stay)`);
+  }
+  if (!all || typeof all !== 'object' || Array.isArray(all))
+    throw new C.ConfigError(`${file}: not the record of read-only markers everkeep writes; delete it and restart (markers already on disk stay)`);
+  const root = fs.realpathSync.native(vault);
+  const mine = all[root] && typeof all[root] === 'object' ? all[root] : {};
+  const R = SP.createResolver(vault);
+  P.setEditorMode('extension');
+  const hash = text => crypto.createHash('sha256').update(text, 'utf8').digest('hex');
+  const markerText = dir => {
+    try {
+      const m = W.markerPath(dir);
+      return fs.lstatSync(m.path).isFile() ? fs.readFileSync(m.path, 'utf8') : null;
+    } catch { return null; }
+  };
+
+  const wanted = new Map();
+  for (const g of given) {
+    if (!g || /^\$\{user_config\.[^}]*\}$/.test(g)) continue;
+    let dir;
+    try { dir = W.targetDir(R, path.resolve(g)); } catch (e) {
+      say(`read-only folder ${g} skipped: ${e.message}`);
+      continue;
+    }
+    wanted.set(fs.realpathSync.native(dir.path), dir);
+  }
+
+  const next = {};
+  for (const [key, h] of Object.entries(mine)) {
+    if (wanted.has(key)) continue;
+    let dir;
+    try { dir = W.targetDir(R, key); } catch { continue; }
+    const text = markerText(dir);
+    if (text === null) continue;
+    if (hash(text) !== h) {
+      say(`read-only folder ${key}: its marker was changed after everkeep wrote it; left as it is`);
+      continue;
+    }
+    try {
+      W.removeMarker(dir);
+      say(`read-only folder ${key}: no longer in the settings, marker removed`);
+    } catch (e) {
+      say(`read-only folder ${key}: ${e.message}`);
+      next[key] = h;
+    }
+  }
+  for (const [key, dir] of wanted) {
+    const text = markerText(dir);
+    if (text === null) {
+      try {
+        W.writeMarker(R, dir, W.specOf({ mode: 'readonly' }, W.contextOf(R, dir)), 'extension');
+        next[key] = hash(markerText(dir));
+        say(`read-only folder ${key}: marker written`);
+      } catch (e) {
+        say(`read-only folder ${key}: ${e.message}`);
+      }
+    } else if (mine[key] === hash(text)) {
+      next[key] = mine[key];
+    } else {
+      say(`read-only folder ${key} keeps the marker it has; the setting does not change it`);
+    }
+  }
+
+  const before = JSON.stringify(mine);
+  if (Object.keys(next).length) all[root] = next;
+  else delete all[root];
+  if (JSON.stringify(all[root] || {}) === before) return;
+  const tmp = `${file}.tmp-${process.pid}`;
+  fs.writeFileSync(tmp, JSON.stringify(all, null, 2) + '\n');
   fs.renameSync(tmp, file);
 }
 

@@ -26,15 +26,17 @@ const NOT_A_FILE = Symbol('not-a-file');
 const SKIP_DIRS = new Set(['.git', 'node_modules', '.svn', '.hg']);
 
 // Where markers are edited, named in refusals and in the marker preamble. Set
-// once per process from policy_page.mode (setEditorMode).
+// once per process from policy_page.mode (setEditorMode); "extension" under
+// the Claude Desktop extension.
 let EDITOR_MODE = 'off';
 
 function setEditorMode(mode) {
-  EDITOR_MODE = mode === 'ha-ingress' || mode === 'token' ? mode : 'off';
+  EDITOR_MODE = mode === 'ha-ingress' || mode === 'token' || mode === 'extension' ? mode : 'off';
 }
 
 function policyEditor(mode = EDITOR_MODE) {
   if (mode === 'ha-ingress') return 'the Vault policies page in the Home Assistant sidebar';
+  if (mode === 'extension') return 'the Read-only folders setting in the extension settings in Claude Desktop, or `everkeep policy` where Node.js is installed';
   if (mode === 'token') return 'the Vault policies page (the connector address with /policies in place of /mcp) or `everkeep policy` on the server';
   return '`everkeep policy` on the server';
 }
