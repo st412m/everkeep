@@ -75,7 +75,7 @@ Moving *down* from a checked directory — the step every tree walk takes, one n
 | `tools/check-doc-examples.mjs` | checks the examples in the documentation against the source; with a second argument, also the Home Assistant app repository |
 | `tools/scan-secrets.mjs` | scans the repository for private addresses, MACs, tokens, personal paths and e-mail addresses |
 | `tools/check-release.mjs` | one version in `package.json`, `CHANGELOG.md`, the `Dockerfile` pin, `server.json` and `compose.example.yaml`; `server.json` limits |
-| `.github/workflows/ci.yml` | on every push: `node --check`, the tests on Linux, Windows and macOS (Node 22 and 24; Windows and macOS on Node 22 and macOS on Intel only in `st412m/everkeep`; on macOS also poppler from Homebrew and `toolchain-check.sh smoke`), the three tools, the contents of `npm pack` |
+| `.github/workflows/ci.yml` | on every push: `node --check`, the tests on Linux, Windows and macOS (Node 22 and 24; Windows and macOS on Node 22 and macOS on Intel only in `st412m/everkeep`; on macOS also sqlite and poppler from Homebrew and `toolchain-check.sh smoke`), the three tools, the contents of `npm pack` |
 | `.github/workflows/image.yml` | on a `v*` tag: builds the image for amd64 and arm64 from npm and pushes it to `ghcr.io/st412m/everkeep` |
 
 ## Traps

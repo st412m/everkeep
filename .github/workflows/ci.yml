@@ -71,22 +71,25 @@ jobs:
           if [ -e "$RUNNER_TEMP/cs/PROBE" ]; then echo "the volume ignores case"; exit 1; fi
           rm "$RUNNER_TEMP/cs/probe"
           echo "TMPDIR=$RUNNER_TEMP/cs" >> "$GITHUB_ENV"
-      # macOS has no poppler and ships its own sqlite3 (Homebrew's sqlite is
-      # keg-only and does not reach PATH): install poppler, then run the PDF,
-      # document and SQLite pipeline the server uses. /usr/bin goes first:
-      # the runner's Android SDK has its own sqlite3 earlier on PATH, and the
-      # one to check is the sqlite3 macOS ships.
+      # macOS has no poppler, and the sqlite3 it ships (/usr/bin, 3.51.0 on
+      # macOS 26.7) does not take PRAGMA hard_heap_limit (the echo is 0), so
+      # sqlite_query would refuse with HEAP_LIMIT_UNCONFIRMED. Homebrew's
+      # sqlite is keg-only: its bin goes first on PATH, as the install docs
+      # tell users to do. The runner's Android SDK has a sqlite3 of its own on
+      # PATH as well; the smoke line prints which one ran.
       - name: External tools (macOS)
         if: runner.os == 'macOS'
         env:
           HOMEBREW_NO_AUTO_UPDATE: 1
           HOMEBREW_NO_INSTALL_CLEANUP: 1
         run: |
-          brew install poppler
-          which -a sqlite3 pdfinfo pdftoppm
+          brew install sqlite poppler
+          SQLITE_BIN_DIR="$(brew --prefix sqlite)/bin"
           sw_vers
           /usr/bin/sqlite3 -version
-          PATH="/usr/bin:$PATH" sh scripts/toolchain-check.sh smoke
+          "$SQLITE_BIN_DIR/sqlite3" -version
+          PATH="$SQLITE_BIN_DIR:$PATH" which -a sqlite3 pdfinfo pdftoppm
+          PATH="$SQLITE_BIN_DIR:$PATH" sh scripts/toolchain-check.sh smoke
       # The glob is quoted: node expands it itself.
       - name: Tests
         run: node --test "test/*.test.js"
