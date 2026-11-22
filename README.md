@@ -16,7 +16,7 @@ Files go into the folder by ordinary copying, like into any other folder: see [p
 
 This gets Everkeep running on your own computer with Docker and connects Claude to it. You need about ten minutes and no programming.
 
-Only Claude Desktop, on Windows or macOS? You do not need Docker: download the Everkeep extension from the [latest release](https://github.com/st412m/everkeep/releases/latest), double-click it and pick your notes folder, see [Claude Desktop](https://github.com/st412m/everkeep/blob/main/docs/installation.md#claude-desktop).
+Only Claude Desktop, on Windows or macOS? You do not need Docker: download the Everkeep extension from the [latest release](https://github.com/st412m/everkeep/releases/latest), install it in Claude Desktop's settings and pick your notes folder, see [Claude Desktop](https://github.com/st412m/everkeep/blob/main/docs/installation.md#claude-desktop).
 
 **1. Install Docker.** On Windows or macOS, install [Docker Desktop](https://www.docker.com/products/docker-desktop/) and start it; wait until it says Docker is running. On Linux, install [Docker Engine](https://docs.docker.com/engine/install/).
 

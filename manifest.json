@@ -47,7 +47,7 @@
     "vault": {
       "type": "directory",
       "title": "Notes folder",
-      "description": "The folder for your notes (default: everkeep in your home folder, created on first start). On the first start in a folder that has no CLAUDE.md or AGENTS.md, Everkeep adds a starter CLAUDE.md, and a .vault-policy marker if there is none; it never adds them to that folder again. Other files in the folder are not touched.",
+      "description": "The folder for your notes (default: everkeep in your home folder, created on first start). On the first start in a folder, Everkeep adds a starter CLAUDE.md when the folder has no CLAUDE.md or AGENTS.md, and a .vault-policy marker when it has none; it never adds them to that folder again. Other files in the folder are not touched.",
       "default": "${HOME}/everkeep",
       "required": true
     },

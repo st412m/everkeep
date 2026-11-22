@@ -198,6 +198,14 @@ async function stdioCommand(args) {
     readonlyFolders = args.slice(cut + 1);
     args = args.slice(0, cut);
   }
+  if (extension && process.platform === 'darwin') {
+    const before = process.env.PATH || '';
+    const next = homebrewPath(before);
+    if (next !== before) {
+      process.env.PATH = next;
+      say(`PATH: Homebrew folders added in front: ${next.split(path.delimiter).filter(d => !before.split(path.delimiter).includes(d)).join(', ')}`);
+    }
+  }
   let opts;
   try {
     opts = parseArgs({ args, options: { vault: { type: 'string' } } }).values;
@@ -739,6 +747,19 @@ function firstRun(dir, { stateDir, homedir }) {
   fs.renameSync(tmp, file);
 }
 
+// macOS apps started from the Dock or Finder get the system PATH, not the one
+// a login shell builds from ~/.zprofile: Homebrew's sqlite3 and poppler would
+// not be found, and /usr/bin/sqlite3, which does not apply the memory limit,
+// would run. Homebrew's folders that exist and are missing go in front, the
+// keg-only sqlite first.
+const HOMEBREW_BIN = ['/opt/homebrew/opt/sqlite/bin', '/opt/homebrew/bin', '/usr/local/opt/sqlite/bin', '/usr/local/bin'];
+
+function homebrewPath(current, exists = fs.existsSync) {
+  const parts = (current || '').split(path.delimiter).filter(Boolean);
+  const add = HOMEBREW_BIN.filter(d => !parts.includes(d) && exists(d));
+  return add.length ? [...add, ...parts].join(path.delimiter) : current;
+}
+
 // The "Read-only folders" setting: a read-only marker in each listed folder
 // that has none. The markers the extension wrote are remembered by content in
 // the state dir; one whose folder leaves the list is removed if it is still
@@ -873,4 +894,4 @@ if (startedAsProgram()) {
   );
 }
 
-module.exports = { main, USAGE, parseSetArgs, changeFromFlags, initCommand };
+module.exports = { main, USAGE, parseSetArgs, changeFromFlags, initCommand, homebrewPath, HOMEBREW_BIN };

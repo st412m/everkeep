@@ -78,7 +78,7 @@ On macOS, with [Homebrew](https://brew.sh):
 brew install node
 ```
 
-Both install the current LTS, Node.js 26; open a new terminal afterwards. On Linux, use your distribution's package when it is 22.17 or later, or the [Node.js downloads](https://nodejs.org/en/download).
+Both install the current LTS; open a new terminal afterwards. On Linux, use your distribution's package when it is 22.17 or later, or the [Node.js downloads](https://nodejs.org/en/download).
 
 PDF page images (`read_pdf_page`) need `pdfinfo` and `pdftoppm` from poppler, and the SQLite tools need `sqlite3`; everything else works without them.
 
@@ -106,7 +106,7 @@ winget install -e --id oschwartz10612.Poppler
 
 then open a new PowerShell window.
 
-`everkeep check-config` prints the version of each tool it finds. If it shows a `sqlite3` you did not install, another copy (one comes with the Android SDK, for example) is earlier on PATH. A client app that starts Everkeep itself uses its own PATH: restart it after installing, and if SQLite queries are still refused there, set `PATH` in the client's entry for Everkeep.
+`everkeep check-config` prints the version of each tool it finds. If it shows a `sqlite3` you did not install, another copy (one comes with the Android SDK, for example) is earlier on PATH. A client app that starts Everkeep itself uses its own PATH: restart it after installing, and if SQLite queries are still refused there, set `PATH` in the client's entry for Everkeep (the Claude Desktop extension has no such entry; see [Claude Desktop](#claude-desktop)).
 
 Run it with npx; npm downloads the package on the first run:
 
@@ -182,16 +182,18 @@ The [ha-filesystem-mcp](https://github.com/st412m/ha-filesystem-mcp) app runs Ev
 On Windows and macOS, Everkeep comes as a Claude Desktop extension. Claude Desktop runs it with its own Node.js and talks to it over stdio, so no Docker, no address and no token are needed.
 
 1. Download `everkeep-<version>.mcpb` from the [latest release](https://github.com/st412m/everkeep/releases/latest).
-2. Double-click it, or in Claude Desktop open **Settings → Desktop app → Extensions → Manage → Advanced settings → Install Extension…** and choose the file.
-3. In the extension settings, set **Notes folder**. The default is `everkeep` in your home folder, created on the first start. On the first start in a folder that has neither `CLAUDE.md` nor `AGENTS.md`, Everkeep adds a starter `CLAUDE.md`, and a `.vault-policy` marker if the folder has none; it never adds them to that folder again, and other files in it are not touched.
+2. In Claude Desktop open **Settings → Desktop app → Extensions → Manage → Advanced settings → Install Extension…** and choose the file. Double-clicking the file works only where `.mcpb` files open with Claude Desktop; an archiver may open it as an archive instead.
+3. In the extension settings, set **Notes folder**. The default is `everkeep` in your home folder, created on the first start. On the first start in a folder, Everkeep adds a starter `CLAUDE.md` when the folder has neither `CLAUDE.md` nor `AGENTS.md`, and a `.vault-policy` marker when it has none (edits need the current rev, discarded files go to a trash); it never adds them to that folder again, and other files in it are not touched.
 4. Optionally, list folders under **Read-only folders**: Claude can read them but not change them. Everkeep writes a read-only marker into each one that has none, and removes it again when the folder leaves the list; a folder with a marker of its own keeps it.
 5. Turn the extension on.
 
-PDF page images and SQLite still need poppler and `sqlite3`, installed as in [Without Docker](#without-docker); the extension finds them on the PATH Claude Desktop was started with, so restart Claude Desktop after installing them.
+PDF page images and SQLite still need poppler and `sqlite3`, installed as in [Without Docker](#without-docker); the extension looks for them on the PATH Claude Desktop was started with, so restart Claude Desktop after installing them. On macOS an app started from the Dock does not get the PATH set in `~/.zprofile`, so the extension puts Homebrew's folders (`/opt/homebrew/opt/sqlite/bin`, `/opt/homebrew/bin`, and the same under `/usr/local` on Intel Macs) in front by itself.
+
+The extension has been tested on Windows. On macOS it has not been tested yet; reports are welcome.
 
 If the tools do not appear, the log is `mcp-server-Everkeep.log` in `%LOCALAPPDATA%\Claude\logs` on Windows or in `~/Library/Logs/Claude` on macOS.
 
-Claude Desktop on Linux runs it without Docker: `"command": "npx"` with `"args": ["--yes", "--package=everkeep", "everkeep", "--vault", "/home/me/notes"]`.
+There is no extension for Claude Desktop on Linux. There, add Everkeep under `mcpServers` in Claude Desktop's `claude_desktop_config.json`, with `"command": "npx"` and `"args": ["--yes", "--package=everkeep", "everkeep", "--vault", "/home/me/notes"]`; Node.js must be installed.
 
 ## Claude Code
 
