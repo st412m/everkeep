@@ -1,0 +1,144 @@
+{
+  "manifest_version": "0.3",
+  "name": "everkeep",
+  "display_name": "Everkeep",
+  "version": "1.1.0",
+  "description": "Your notes in one folder on your computer: Claude reads them at the start of a chat and writes down what you worked out.",
+  "long_description": "Everkeep keeps notes, decisions and projects as plain files in one folder. Claude reads and edits them through 20 tools under write policies you set: a folder can be read-only, edits can require the current version of a file, and discarded files go to a trash instead of being deleted. On the first start in a folder without a CLAUDE.md or AGENTS.md, Everkeep adds a starter CLAUDE.md, so the first chat sets the folder up by asking what you want to keep. Text, Markdown and common documents (PDF, Word, spreadsheets) are read as numbered lines. SQLite and PDF page images need sqlite3 and poppler installed separately.",
+  "author": {
+    "name": "st412m",
+    "url": "https://github.com/st412m"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/st412m/everkeep"
+  },
+  "homepage": "https://github.com/st412m/everkeep",
+  "documentation": "https://github.com/st412m/everkeep#readme",
+  "support": "https://github.com/st412m/everkeep/issues",
+  "license": "MIT",
+  "icon": "icon.png",
+  "keywords": [
+    "notes",
+    "memory",
+    "vault",
+    "files",
+    "markdown"
+  ],
+  "server": {
+    "type": "node",
+    "entry_point": "src/cli.js",
+    "mcp_config": {
+      "command": "node",
+      "args": [
+        "${__dirname}/src/cli.js",
+        "--vault",
+        "${user_config.vault}"
+      ],
+      "env": {
+        "EVERKEEP_EXTENSION": "claude-desktop",
+        "EVERKEEP_SETTINGS_UI": "the extension settings in Claude Desktop"
+      }
+    }
+  },
+  "user_config": {
+    "vault": {
+      "type": "directory",
+      "title": "Notes folder",
+      "description": "The folder for your notes (default: everkeep in your home folder, created on first start). On the first start in a folder that has no CLAUDE.md or AGENTS.md, Everkeep adds a starter CLAUDE.md, and a .vault-policy marker if there is none; it never adds them to that folder again. Other files in the folder are not touched.",
+      "default": "${HOME}/everkeep",
+      "required": true
+    }
+  },
+  "tools": [
+    {
+      "name": "grep_files",
+      "description": "Search file contents by regex, recursively"
+    },
+    {
+      "name": "read_text_file",
+      "description": "Read one text file or document as numbered lines"
+    },
+    {
+      "name": "read_media_file",
+      "description": "Read an image or audio file"
+    },
+    {
+      "name": "read_pdf_page",
+      "description": "Render one PDF page as an image"
+    },
+    {
+      "name": "read_pdf_text",
+      "description": "Text of a PDF as numbered lines with page markers"
+    },
+    {
+      "name": "sqlite_schema",
+      "description": "Inspect the schema of a SQLite file"
+    },
+    {
+      "name": "sqlite_query",
+      "description": "Run one read-only SQL statement on a SQLite file"
+    },
+    {
+      "name": "read_multiple_files",
+      "description": "Read several files at once"
+    },
+    {
+      "name": "write_file",
+      "description": "Create or overwrite a file under the write policy"
+    },
+    {
+      "name": "edit_file",
+      "description": "Edit a file by text or by lines"
+    },
+    {
+      "name": "create_directory",
+      "description": "Create a directory"
+    },
+    {
+      "name": "list_directory",
+      "description": "List one directory with the policy in force"
+    },
+    {
+      "name": "list_directory_with_sizes",
+      "description": "List a directory with file sizes"
+    },
+    {
+      "name": "directory_tree",
+      "description": "Tree view of a directory"
+    },
+    {
+      "name": "move_file",
+      "description": "Move or rename a file or directory"
+    },
+    {
+      "name": "copy_file",
+      "description": "Copy a file inside the vault"
+    },
+    {
+      "name": "trash_file",
+      "description": "Move a file into the trash of its zone"
+    },
+    {
+      "name": "search_files",
+      "description": "Find files by name"
+    },
+    {
+      "name": "get_file_info",
+      "description": "Metadata of a file or directory"
+    },
+    {
+      "name": "list_allowed_directories",
+      "description": "The vault folder"
+    }
+  ],
+  "compatibility": {
+    "platforms": [
+      "darwin",
+      "win32"
+    ],
+    "runtimes": {
+      "node": ">=22.17"
+    }
+  }
+}

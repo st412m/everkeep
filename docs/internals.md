@@ -74,9 +74,11 @@ Moving *down* from a checked directory — the step every tree walk takes, one n
 | `EVERKEEP_TEST_CI_MOUNT` | a directory on a file system that ignores letter case; with it set, `test/casefold.test.js` runs its cases there |
 | `tools/check-doc-examples.mjs` | checks the examples in the documentation against the source; with a second argument, also the Home Assistant app repository |
 | `tools/scan-secrets.mjs` | scans the repository for private addresses, MACs, tokens, personal paths and e-mail addresses |
-| `tools/check-release.mjs` | one version in `package.json`, `CHANGELOG.md`, the `Dockerfile` pin, `server.json` and `compose.example.yaml`; `server.json` limits |
-| `.github/workflows/ci.yml` | on every push: `node --check`, the tests on Linux, Windows and macOS (Node 22 and 24; Windows and macOS on Node 22 and macOS on Intel only in `st412m/everkeep`; on macOS also sqlite and poppler from Homebrew and `toolchain-check.sh smoke`), the three tools, the contents of `npm pack` |
+| `tools/check-release.mjs` | one version in `package.json`, `CHANGELOG.md`, the `Dockerfile` pin, `server.json`, `compose.example.yaml` and `manifest.json`; `server.json` limits; the manifest's tools = `TOOLS`; `icon.png` 512×512 |
+| `tools/pack-mcpb.mjs` | builds the Claude Desktop extension `everkeep-<version>.mcpb` from an `npm pack` tarball: `manifest.json` and `icon.png` added, dependencies without optional ones (no `@napi-rs`), a start check, then validate and pack with the mcpb CLI (its version pinned in the script) |
+| `.github/workflows/ci.yml` | on every push: `node --check`, the tests on Linux, Windows and macOS (Node 22 and 24; Windows and macOS on Node 22 and macOS on Intel only in `st412m/everkeep`; on macOS also sqlite and poppler from Homebrew and `toolchain-check.sh smoke`), the three tools, `manifest.json` validated with the mcpb CLI, the contents of `npm pack` |
 | `.github/workflows/image.yml` | on a `v*` tag: builds the image for amd64 and arm64 from npm and pushes it to `ghcr.io/st412m/everkeep` |
+| `.github/workflows/mcpb.yml` | on a published GitHub release: builds `everkeep-<version>.mcpb` with `tools/pack-mcpb.mjs` and attaches it to the release |
 
 ## Traps
 

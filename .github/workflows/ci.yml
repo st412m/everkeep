@@ -113,15 +113,20 @@ jobs:
           pipx run yamllint==1.38.0 --strict
           -d "{extends: default, rules: {document-start: disable,
           line-length: {max: 160}, truthy: {check-keys: false}}}"
-          compose.example.yaml .github/workflows/ci.yml .github/workflows/image.yml
+          compose.example.yaml .github/workflows/ci.yml .github/workflows/image.yml .github/workflows/mcpb.yml
       - name: Documentation examples
         run: node tools/check-doc-examples.mjs
       - name: Secret scan
         run: node tools/scan-secrets.mjs
-      # One version in package.json, CHANGELOG, the Dockerfile pin, server.json
-      # and compose.example.yaml; server.json limits.
+      # One version in package.json, CHANGELOG, the Dockerfile pin, server.json,
+      # compose.example.yaml and manifest.json; server.json limits; the
+      # manifest's tools = the server's tools; icon.png 512×512.
       - name: Release consistency
         run: node tools/check-release.mjs
+      # The Claude Desktop extension manifest; the CLI version is pinned in
+      # tools/pack-mcpb.mjs.
+      - name: MCPB manifest
+        run: npx -y @anthropic-ai/mcpb@2.1.2 validate manifest.json
       # The package holds src/, scripts/, everkeep.example.json, README.md,
       # CHANGELOG.md, LICENSE and package.json, nothing else.
       - name: Package contents
