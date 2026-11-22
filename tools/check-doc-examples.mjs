@@ -105,6 +105,7 @@ const EXTERNAL = new Set([
   'wiki/drafts', 'wiki', '/srv/notes', '/srv/notes_old', '/vault/docs/manual.pdf#3', 'wiki/system/foo.md', '/media/VAULT', '/media', '/share',
   '"*.md,*.yaml"', 'include="*.md,*.yaml"', '.fydb', '.db', 'x', '`x`', '+03:00', '2026-09-13 07:31:02 +03:00', '-1', '-2',
   '"Excel workbook (.xlsx)"', '"Word document (.docx)"', '"plain text"', 'changeme', 'CLAUDE.md', 'log.md',
+  '%USERPROFILE%\\everkeep',
   // SQL fragments suggested to the reader
   'hex(col)', 'length(col)', 'group_concat()', 'hex()',
   // line-edit shapes written as objects (the fields are checked separately)
@@ -132,9 +133,10 @@ const EXTERNAL = new Set([
   // other clients' configuration
   '~/.cursor/mcp.json', '.cursor/mcp.json', 'claude_desktop_config.json', 'mcpServers', '%APPDATA%\\Claude\\',
   '~/Library/Application Support/Claude/', '%APPDATA%\\Claude\\logs', '~/Library/Logs/Claude', 'mcp-server-everkeep.log',
-  ':/vault', 'npx',
+  ':/vault', 'npx', 'npx.cmd', 'npx.ps1', '%LOCALAPPDATA%\\Claude\\logs', '~/.codex/config.toml',
   // other programs' commands, flags and messages
   'docker run', 'docker exec everkeep', 'tailscale up', '--bg', 'reverse_proxy', 'EACCES: permission denied', 'Illegal instruction',
+  'npx.ps1 cannot be loaded',
   // a fragment of a config file; whole config blocks are parsed below
   '"log_requests": true',
   // a field of server.json, checked by tools/check-release.mjs

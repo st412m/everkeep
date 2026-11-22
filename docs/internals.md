@@ -70,7 +70,7 @@ Moving *down* from a checked directory — the step every tree walk takes, one n
 
 | | |
 |---|---|
-| `test/*.test.js` | tests on `node:test`: `node --test "test/*.test.js"` (the quoted glob; the directory form does not work on Node 22). On Windows the tests that need Linux (symlinks, permissions, the CLI) are skipped with the reason |
+| `test/*.test.js` | tests on `node:test`: `node --test "test/*.test.js"` (the quoted glob; the directory form does not work on Node 22). Tests that need something a platform lacks are skipped with the reason: the Windows-only cases on Linux and macOS, POSIX permission modes on Windows, symlinks on Windows without Developer Mode |
 | `EVERKEEP_TEST_CI_MOUNT` | a directory on a file system that ignores letter case; with it set, `test/casefold.test.js` runs its cases there |
 | `tools/check-doc-examples.mjs` | checks the examples in the documentation against the source; with a second argument, also the Home Assistant app repository |
 | `tools/scan-secrets.mjs` | scans the repository for private addresses, MACs, tokens, personal paths and e-mail addresses |

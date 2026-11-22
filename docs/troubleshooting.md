@@ -70,6 +70,8 @@ The refusal starts with `PATH_OUTSIDE_VAULT` when the path is not inside the vau
 - The client uses paths of another setup. In Docker the vault is `/vault`; `list_allowed_directories` shows the root.
 - The path names the vault in another letter case or Unicode form, on a file system that treats them as one folder (macOS, Windows). The message then ends with `(the vault is … — spell the path with that prefix)`; use the spelling it shows.
 
+On Windows, a refusal starting with `PATH_WINDOWS_NAME` means a name Windows would read as something else: a colon (an alternate data stream), a trailing space or period (Windows drops it), a reserved device name such as `CON` or `NUL` with or without an extension, an 8.3 short name such as `VAULT-~1` (use the full name), or a path starting with `\\?\` or `\\.\`. Nothing is read or written. On Linux and macOS these are ordinary names.
+
 ## Writes are refused
 
 - `Refused — … is read-only by policy`: the zone is read-only. Change it with `everkeep policy set`.
@@ -77,6 +79,7 @@ The refusal starts with `PATH_OUTSIDE_VAULT` when the path is not inside the vau
 - `rev mismatch`: the file changed since it was read. Re-read and redo the edit.
 - `Refused — read-only: document formats are not edited by this server`: documents are read-only.
 - The listing tools print `⚠ Policy: BROKEN MARKER`: a `.vault-policy` file is unreadable and locks its whole subtree. Fix it first. See [policies.md](policies.md#if-a-marker-breaks).
+- `… is open in another program (EPERM); close it and try again — the marker was not changed` (Windows): another program, such as an editor, a sync client or a virus scanner, holds the `.vault-policy` file open. Close it and repeat the change.
 - `EACCES: permission denied`: not a policy. The operating system does not let the server write there: in Docker the vault must be writable by user id 1000, see [who owns the folder](installation.md#who-owns-the-folder).
 
 ## The server does not start
@@ -87,6 +90,7 @@ Every message starts with `everkeep:`; the exit code is 1 (2 for a wrong command
 - `state_dir … is inside the vault …` — move the state directory out of the vault.
 - `state_dir … is not writable by this process` — the message names the user ids; in Docker, `/data` must belong to the user the container runs as.
 - `token from env EVERKEEP_TOKEN: the token is too short …` — a token you set yourself breaks the rules; unset it and let the server generate one.
+- Windows PowerShell refuses `npx` because running scripts is disabled (`npx.ps1 cannot be loaded`) — type `npx.cmd` instead of `npx`.
 - `cannot listen on 127.0.0.1:3100 (EADDRINUSE)` — another program, or another Everkeep, uses the port.
 - The process dies with `Illegal instruction` when it reads a PDF — the CPU has no AVX and the optional `@napi-rs/canvas` is installed; reinstall without it, see [installation](installation.md#a-permanent-command-and-cpus-without-avx).
 
@@ -97,6 +101,13 @@ Every message starts with `everkeep:`; the exit code is 1 (2 for a wrong command
 - `unsupported format: …`: the file is not a document format Everkeep reads.
 
 More in [documents](documents.md).
+
+## SQLite
+
+- `HEAP_LIMIT_UNCONFIRMED` on macOS: the `sqlite3` that comes with macOS is in use, and it does not accept the memory limit. Install Homebrew's and put it first on PATH, see [installation](installation.md#without-docker).
+- `SQLITE_MISSING`: `sqlite3` is not installed, or not on the PATH of the process that runs Everkeep.
+
+More in [SQLite](sqlite.md).
 
 ## The image build fails
 

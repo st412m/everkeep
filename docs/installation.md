@@ -1,9 +1,9 @@
 # Installation
 
-The ways to run Everkeep: the published Docker image, Node.js on Linux, the Home Assistant app, and how to connect Claude Desktop, Claude Code, Cursor and other clients. Read this when installing, or when moving from one setup to another.
+The ways to run Everkeep: the published Docker image, Node.js on Linux, macOS and Windows, the Home Assistant app, and how to connect Claude Desktop, Claude Code, Cursor and other clients. Read this when installing, or when moving from one setup to another.
 
 - [Docker](#docker)
-- [Linux without Docker](#linux-without-docker)
+- [Without Docker](#without-docker)
 - [Home Assistant](#home-assistant)
 - [Claude Desktop](#claude-desktop)
 - [Claude Code](#claude-code)
@@ -64,13 +64,35 @@ To build from a tarball made by `npm pack`, put the tarball next to the `Dockerf
 docker build --build-arg EVERKEEP_TARBALL=everkeep-1.1.0.tgz -t everkeep:1.1.0 .
 ```
 
-## Linux without Docker
+## Without Docker
 
-You need Node.js 22.17 or later, `pdfinfo` and `pdftoppm` (package `poppler-utils`) and `sqlite3`. On Debian and Ubuntu:
+You need Node.js 22.17 or later, on Linux, macOS or Windows. PDF page images (`read_pdf_page`) need `pdfinfo` and `pdftoppm` from poppler, and the SQLite tools need `sqlite3`; everything else works without them.
+
+On Debian and Ubuntu:
 
 ```sh
 sudo apt install poppler-utils sqlite3
 ```
+
+On macOS, with [Homebrew](https://brew.sh):
+
+```sh
+brew install sqlite poppler
+echo "export PATH=\"$(brew --prefix sqlite)/bin:\$PATH\"" >> ~/.zprofile
+```
+
+then open a new Terminal window. The second line puts Homebrew's `sqlite3` first: the one macOS ships does not accept the memory limit Everkeep sets, and SQLite queries are then refused with `HEAP_LIMIT_UNCONFIRMED`.
+
+On Windows, in PowerShell:
+
+```powershell
+winget install -e --id SQLite.SQLite
+winget install -e --id oschwartz10612.Poppler
+```
+
+then open a new PowerShell window.
+
+`everkeep check-config` prints the version of each tool it finds. If it shows a `sqlite3` you did not install, another copy (one comes with the Android SDK, for example) is earlier on PATH. A client app that starts Everkeep itself uses its own PATH: restart it after installing, and if SQLite queries are still refused there, set `PATH` in the client's entry for Everkeep.
 
 Run it with npx; npm downloads the package on the first run:
 
@@ -79,9 +101,13 @@ npx --yes --package=everkeep everkeep init
 npx --yes --package=everkeep everkeep serve
 ```
 
-init creates `~/everkeep` (or the folder you name: `everkeep init /home/me/notes`), writes an instruction file into it — `CLAUDE.md`, or `AGENTS.md` with `--agent other` — and a starter policy (edits need the current rev, trash on), and saves the folder as the default vault in `~/.config/everkeep/config.json`. It never changes a file, marker or setting that already exists, so running it again is safe. `--vault DIR` and `EVERKEEP_VAULT` still name another vault.
+In Windows PowerShell, type `npx.cmd` where these pages say `npx`. Under PowerShell's default script policy on Windows, `npx` runs the script `npx.ps1` and may be refused because running scripts is disabled; `npx.cmd` is not a PowerShell script and runs under any policy.
+
+The command `everkeep init` creates `~/everkeep` (`%USERPROFILE%\everkeep` on Windows; or the folder you name: `everkeep init /home/me/notes`), writes an instruction file into it — `CLAUDE.md`, or `AGENTS.md` with `--agent other` — and a starter policy (edits need the current rev, trash on), and saves the folder as the default vault in `~/.config/everkeep/config.json`. It never changes a file, marker or setting that already exists, so running it again is safe. `--vault DIR` and `EVERKEEP_VAULT` still name another vault.
 
 On the first start it creates the token and prints it once, with the claude.ai path and the Bearer line. `npx --yes --package=everkeep everkeep token` shows it again.
+
+macOS is tested in CI on GitHub's macOS runners, not yet on a real Mac. Reports are welcome.
 
 ### A permanent command, and CPUs without AVX
 
@@ -180,7 +206,7 @@ Claude Desktop starts a local server itself and talks to it over stdio, so no ad
 
 The last word, `everkeep` with no command, runs the stdio server. It can share the folder and the `everkeep-data` volume with an HTTP container started from the Quick start. Claude Desktop on Linux runs it without Docker: `"command": "npx"` with `"args": ["--yes", "--package=everkeep", "everkeep", "--vault", "/home/me/notes"]`.
 
-If the tools do not appear, Claude Desktop's log is in `%APPDATA%\Claude\logs` or `~/Library/Logs/Claude`, in the file `mcp-server-everkeep.log`.
+If the tools do not appear, Claude Desktop's log is in `%LOCALAPPDATA%\Claude\logs` on Windows (`%APPDATA%\Claude\logs` in some installs) or `~/Library/Logs/Claude` on macOS, in the file `mcp-server-everkeep.log`.
 
 ## Claude Code
 
@@ -190,7 +216,7 @@ Over HTTP, to a server that is already running:
 claude mcp add --transport http everkeep http://127.0.0.1:3100/mcp --header "Authorization: Bearer <token>"
 ```
 
-Or on stdio, started by Claude Code itself (Linux):
+Or on stdio, started by Claude Code itself:
 
 ```sh
 claude mcp add --scope user --transport stdio everkeep -- npx --yes --package=everkeep everkeep
@@ -206,6 +232,14 @@ A client that speaks MCP Streamable HTTP needs the URL and one header:
 - header: `Authorization: Bearer <token>`.
 
 A client that cannot send headers uses the secret path instead: `https://<your-host>/private_<token>/mcp`.
+
+A client that starts a local server itself runs `npx --yes --package=everkeep everkeep` on stdio, with `--vault DIR` added when `everkeep init` was not run. Codex, in `~/.codex/config.toml` (shared by the Codex CLI, its IDE extension and the ChatGPT desktop app):
+
+```toml
+[mcp_servers.everkeep]
+command = "npx"
+args = ["--yes", "--package=everkeep", "everkeep"]
+```
 
 Cursor, in `~/.cursor/mcp.json` or a project's `.cursor/mcp.json`:
 

@@ -4,7 +4,7 @@
 
 Everkeep keeps your notes, decisions and projects in one folder on your own server. Your AI assistant reads it when a chat starts and writes down what you worked out — so tomorrow's conversation picks up where today's ended. You decide what it may change; it can't delete or overwrite anything you haven't allowed.
 
-Works with Claude and any MCP client · runs on Linux, Docker or Home Assistant
+Works with Claude and any MCP client · runs on Linux, macOS, Windows, Docker or Home Assistant
 
 ### Your documents, too
 
@@ -122,7 +122,7 @@ It searches, gets line numbers and the file's `rev`, and edits one line:
 | | |
 |---|---|
 | Docker | Docker Desktop (Windows, macOS) or Docker Engine (Linux); images for amd64 and arm64 (Raspberry Pi 4/5) |
-| Linux without Docker | Node.js ≥ 22.17, `poppler-utils` (`pdfinfo`, `pdftoppm`), `sqlite3` |
+| Without Docker | Node.js ≥ 22.17 on Linux, macOS or Windows; for PDF page images and SQLite also poppler (`pdfinfo`, `pdftoppm`) and `sqlite3` |
 | Home Assistant | OS or Supervised, through the [ha-filesystem-mcp](https://github.com/st412m/ha-filesystem-mcp) app |
 | Disk | the Docker image is about 340 MB; the npm package with its dependencies about 48 MB |
 | For claude.ai | a public HTTPS address: see [remote access](https://github.com/st412m/everkeep/blob/main/docs/remote-access.md) |
@@ -133,18 +133,20 @@ It searches, gets line numbers and the file's `rev`, and edits one line:
 
 The image `ghcr.io/st412m/everkeep` runs `everkeep serve` on port 3100 as user id 1000, with the vault at `/vault` and its own state (token, document cache) in the volume `/data`. The [Quick start](#quick-start) shows `docker run`; [compose.example.yaml](https://github.com/st412m/everkeep/blob/main/compose.example.yaml) does the same with Docker Compose. Folder ownership, updates and building the image yourself: [installation](https://github.com/st412m/everkeep/blob/main/docs/installation.md#docker).
 
-### Linux without Docker
+### Without Docker
 
-Install `poppler-utils` and `sqlite3` with your package manager, then run it with npx:
+Install Node.js 22.17 or later. For PDF page images and SQLite, also install poppler and `sqlite3`: [installation](https://github.com/st412m/everkeep/blob/main/docs/installation.md#without-docker) has the line for Linux, macOS and Windows. Then run it with npx:
 
 ```sh
 npx --yes --package=everkeep everkeep init
 npx --yes --package=everkeep everkeep serve
 ```
 
-init creates `~/everkeep` with an instruction file for the assistant and a starter write policy, and saves it as the default vault; `--vault DIR` still names another one.
+In Windows PowerShell, type `npx.cmd` instead of `npx`: under PowerShell's default script policy, `npx` may be refused.
 
-On first start it prints the token once; `everkeep token` shows it again. For a permanent `everkeep` command, a CPU without AVX (some Celeron, Atom and Pentium models) and a systemd service, see [installation](https://github.com/st412m/everkeep/blob/main/docs/installation.md#linux-without-docker). Windows and macOS are not supported without Docker.
+The command `everkeep init` creates `~/everkeep` with an instruction file for the assistant and a starter write policy, and saves it as the default vault; `--vault DIR` still names another one.
+
+On first start it prints the token once; `everkeep token` shows it again. For a permanent `everkeep` command, a CPU without AVX (some Celeron, Atom and Pentium models) and a systemd service, see [installation](https://github.com/st412m/everkeep/blob/main/docs/installation.md#without-docker). macOS is tested in CI on GitHub's macOS runners, not yet on a real Mac.
 
 ### Home Assistant
 
@@ -240,7 +242,7 @@ With Docker, run the same commands inside the container: `docker exec everkeep e
 
 ## Limitations
 
-- **Linux only without Docker.** Windows and macOS run it in Docker.
+- **macOS is tested in CI only**, on GitHub's macOS runners, not yet on a real Mac. Reports are welcome.
 - **No OAuth.** The token in the path or the Bearer header is the only key.
 - **No delete.** `trash_file` moves a file into a trash directory, and only in a zone that has one.
 - **SQLite is read-only** and will stay so.
