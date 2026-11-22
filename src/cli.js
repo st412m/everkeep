@@ -535,8 +535,7 @@ function askAgent() {
 const READY_CLAUDE = [
   'Claude Code:',
   '  claude mcp add --scope user --transport stdio everkeep -- npx --yes --package=everkeep everkeep',
-  'Claude Desktop (claude_desktop_config.json, "mcpServers"):',
-  '  "everkeep": { "command": "npx", "args": ["--yes", "--package=everkeep", "everkeep"] }',
+  'Claude Desktop (Windows, macOS): the Everkeep extension from https://github.com/st412m/everkeep/releases/latest',
   'claude.ai and other HTTP clients: run `everkeep serve`, then `everkeep token` for the connector path.',
 ];
 const READY_OTHER = [

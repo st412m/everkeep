@@ -66,7 +66,21 @@ docker build --build-arg EVERKEEP_TARBALL=everkeep-1.1.0.tgz -t everkeep:1.1.0 .
 
 ## Without Docker
 
-You need Node.js 22.17 or later, on Linux, macOS or Windows. PDF page images (`read_pdf_page`) need `pdfinfo` and `pdftoppm` from poppler, and the SQLite tools need `sqlite3`; everything else works without them.
+You need Node.js 22.17 or later, on Linux, macOS or Windows; Claude Code's own installer does not include it. On Windows, in PowerShell:
+
+```powershell
+winget install -e --id OpenJS.NodeJS.LTS
+```
+
+On macOS, with [Homebrew](https://brew.sh):
+
+```sh
+brew install node
+```
+
+Both install the current LTS, Node.js 26; open a new terminal afterwards. On Linux, use your distribution's package when it is 22.17 or later, or the [Node.js downloads](https://nodejs.org/en/download).
+
+PDF page images (`read_pdf_page`) need `pdfinfo` and `pdftoppm` from poppler, and the SQLite tools need `sqlite3`; everything else works without them.
 
 On Debian and Ubuntu:
 
@@ -165,48 +179,19 @@ The [ha-filesystem-mcp](https://github.com/st412m/ha-filesystem-mcp) app runs Ev
 
 ## Claude Desktop
 
-Claude Desktop starts a local server itself and talks to it over stdio, so no address and no token are needed. On Windows and macOS, Everkeep runs in Docker for this; Docker Desktop must be running.
+On Windows and macOS, Everkeep comes as a Claude Desktop extension. Claude Desktop runs it with its own Node.js and talks to it over stdio, so no Docker, no address and no token are needed.
 
-1. Download the image once, so that Claude Desktop does not wait for it:
+1. Download `everkeep-<version>.mcpb` from the [latest release](https://github.com/st412m/everkeep/releases/latest).
+2. Double-click it, or in Claude Desktop open **Settings → Desktop app → Extensions → Manage → Advanced settings → Install Extension…** and choose the file.
+3. In the extension settings, set **Notes folder**. The default is `everkeep` in your home folder, created on the first start. On the first start in a folder that has neither `CLAUDE.md` nor `AGENTS.md`, Everkeep adds a starter `CLAUDE.md`, and a `.vault-policy` marker if the folder has none; it never adds them to that folder again, and other files in it are not touched.
+4. Optionally, list folders under **Read-only folders**: Claude can read them but not change them. Everkeep writes a read-only marker into each one that has none, and removes it again when the folder leaves the list; a folder with a marker of its own keeps it.
+5. Turn the extension on.
 
-   ```sh
-   docker pull ghcr.io/st412m/everkeep:1.1.0
-   ```
+PDF page images and SQLite still need poppler and `sqlite3`, installed as in [Without Docker](#without-docker); the extension finds them on the PATH Claude Desktop was started with, so restart Claude Desktop after installing them.
 
-2. In Claude Desktop open **Settings → Developer → Edit Config**. This opens `claude_desktop_config.json` (on Windows in `%APPDATA%\Claude\`, on macOS in `~/Library/Application Support/Claude/`).
-3. Add Everkeep to `mcpServers` and put your notes folder before `:/vault`.
+If the tools do not appear, the log is `mcp-server-Everkeep.log` in `%LOCALAPPDATA%\Claude\logs` on Windows or in `~/Library/Logs/Claude` on macOS.
 
-   macOS:
-
-   ```json
-   {
-     "mcpServers": {
-       "everkeep": {
-         "command": "docker",
-         "args": ["run", "-i", "--rm", "-v", "/Users/me/everkeep-notes:/vault", "-v", "everkeep-data:/data", "ghcr.io/st412m/everkeep:1.1.0", "everkeep"]
-       }
-     }
-   }
-   ```
-
-   Windows (every `\` in the path is written twice):
-
-   ```json
-   {
-     "mcpServers": {
-       "everkeep": {
-         "command": "docker",
-         "args": ["run", "-i", "--rm", "-v", "C:\\Users\\me\\everkeep-notes:/vault", "-v", "everkeep-data:/data", "ghcr.io/st412m/everkeep:1.1.0", "everkeep"]
-       }
-     }
-   }
-   ```
-
-4. Quit Claude Desktop completely and start it again.
-
-The last word, `everkeep` with no command, runs the stdio server. It can share the folder and the `everkeep-data` volume with an HTTP container started from the Quick start. Claude Desktop on Linux runs it without Docker: `"command": "npx"` with `"args": ["--yes", "--package=everkeep", "everkeep", "--vault", "/home/me/notes"]`.
-
-If the tools do not appear, Claude Desktop's log is in `%LOCALAPPDATA%\Claude\logs` on Windows (`%APPDATA%\Claude\logs` in some installs) or `~/Library/Logs/Claude` on macOS, in the file `mcp-server-everkeep.log`.
+Claude Desktop on Linux runs it without Docker: `"command": "npx"` with `"args": ["--yes", "--package=everkeep", "everkeep", "--vault", "/home/me/notes"]`.
 
 ## Claude Code
 
@@ -222,7 +207,7 @@ Or on stdio, started by Claude Code itself:
 claude mcp add --scope user --transport stdio everkeep -- npx --yes --package=everkeep everkeep
 ```
 
-After `everkeep init`; without it, add `--vault DIR` at the end.
+After `everkeep init`; without it, add `--vault DIR` at the end. `npx` needs Node.js, which Claude Code's own installer does not include: see [Without Docker](#without-docker).
 
 ## Other clients
 

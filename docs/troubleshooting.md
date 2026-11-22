@@ -74,7 +74,7 @@ On Windows, a refusal starting with `PATH_WINDOWS_NAME` means a name Windows wou
 
 ## Writes are refused
 
-- `Refused — … is read-only by policy`: the zone is read-only. Change it with `everkeep policy set`.
+- `Refused — … is read-only by policy`: the zone is read-only. Change it with `everkeep policy set`, or, in the Claude Desktop extension, take the folder out of Read-only folders in its settings.
 - `Refused — policy "overwrite: rev"`: the file exists and the zone requires its `rev`. The message states the current `rev`; repeat the call with it.
 - `rev mismatch`: the file changed since it was read. Re-read and redo the edit.
 - `Refused — read-only: document formats are not edited by this server`: documents are read-only.

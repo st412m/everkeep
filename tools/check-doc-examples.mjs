@@ -132,7 +132,7 @@ const EXTERNAL = new Set([
   'raw/ha', 'everkeep 1.1.0 on 0.0.0.0:3100, vault /media/VAULT, …', 'everkeep 1.1.0 on 0.0.0.0:3100, vault /vault, …',
   // other clients' configuration
   '~/.cursor/mcp.json', '.cursor/mcp.json', 'claude_desktop_config.json', 'mcpServers', '%APPDATA%\\Claude\\',
-  '~/Library/Application Support/Claude/', '%APPDATA%\\Claude\\logs', '~/Library/Logs/Claude', 'mcp-server-everkeep.log',
+  '~/Library/Application Support/Claude/', '%APPDATA%\\Claude\\logs', '~/Library/Logs/Claude', 'mcp-server-everkeep.log', 'mcp-server-Everkeep.log',
   ':/vault', 'npx', 'npx.cmd', 'npx.ps1', '%LOCALAPPDATA%\\Claude\\logs', '~/.codex/config.toml',
   // other programs' commands, flags and messages
   'docker run', 'docker exec everkeep', 'tailscale up', '--bg', 'reverse_proxy', 'EACCES: permission denied', 'Illegal instruction',

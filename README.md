@@ -16,6 +16,8 @@ Files go into the folder by ordinary copying, like into any other folder: see [p
 
 This gets Everkeep running on your own computer with Docker and connects Claude to it. You need about ten minutes and no programming.
 
+Only Claude Desktop, on Windows or macOS? You do not need Docker: download the Everkeep extension from the [latest release](https://github.com/st412m/everkeep/releases/latest), double-click it and pick your notes folder, see [Claude Desktop](https://github.com/st412m/everkeep/blob/main/docs/installation.md#claude-desktop).
+
 **1. Install Docker.** On Windows or macOS, install [Docker Desktop](https://www.docker.com/products/docker-desktop/) and start it; wait until it says Docker is running. On Linux, install [Docker Engine](https://docs.docker.com/engine/install/).
 
 **2. Start Everkeep.** Open a terminal (on Windows: PowerShell; on macOS: Terminal) and paste the two lines for your system. The first creates the folder `everkeep-notes` in your home folder; that folder is where your notes will live. The second downloads Everkeep and starts it in the background; it starts again by itself after a reboot.
@@ -67,7 +69,7 @@ Treat both like a password: whoever has them can read and change your notes.
   claude mcp add --transport http everkeep http://127.0.0.1:3100/mcp --header "Authorization: Bearer <token>"
   ```
 
-- **Claude Desktop on the same computer:** add the block from [Claude Desktop](https://github.com/st412m/everkeep/blob/main/docs/installation.md#claude-desktop) to its config file and restart it.
+- **Claude Desktop on the same computer:** install the Everkeep extension, see [Claude Desktop](https://github.com/st412m/everkeep/blob/main/docs/installation.md#claude-desktop). It runs an Everkeep of its own; point it at the same `everkeep-notes` folder.
 - **claude.ai in the browser, or the Claude apps:** they connect from the internet, so Everkeep needs a public HTTPS address. [Remote access](https://github.com/st412m/everkeep/blob/main/docs/remote-access.md) shows two free ways, step by step. Then, in **claude.ai → Settings → Connectors → Add custom connector**, paste `https://<your public address>/private_<token>/mcp`.
 
 **6. Try it.**
@@ -123,6 +125,7 @@ It searches, gets line numbers and the file's `rev`, and edits one line:
 |---|---|
 | Docker | Docker Desktop (Windows, macOS) or Docker Engine (Linux); images for amd64 and arm64 (Raspberry Pi 4/5) |
 | Without Docker | Node.js ≥ 22.17 on Linux, macOS or Windows; for PDF page images and SQLite also poppler (`pdfinfo`, `pdftoppm`) and `sqlite3` |
+| Claude Desktop | the extension, on Windows or macOS; Claude Desktop brings its own Node.js; PDF page images and SQLite need poppler and `sqlite3` as above |
 | Home Assistant | OS or Supervised, through the [ha-filesystem-mcp](https://github.com/st412m/ha-filesystem-mcp) app |
 | Disk | the Docker image is about 340 MB; the npm package with its dependencies about 48 MB |
 | For claude.ai | a public HTTPS address: see [remote access](https://github.com/st412m/everkeep/blob/main/docs/remote-access.md) |
@@ -135,7 +138,7 @@ The image `ghcr.io/st412m/everkeep` runs `everkeep serve` on port 3100 as user i
 
 ### Without Docker
 
-Install Node.js 22.17 or later. For PDF page images and SQLite, also install poppler and `sqlite3`: [installation](https://github.com/st412m/everkeep/blob/main/docs/installation.md#without-docker) has the line for Linux, macOS and Windows. Then run it with npx:
+Install Node.js 22.17 or later; Claude Code's own installer does not include it. For PDF page images and SQLite, also install poppler and `sqlite3`. [Installation](https://github.com/st412m/everkeep/blob/main/docs/installation.md#without-docker) has the lines for Linux, macOS and Windows. Then run it with npx:
 
 ```sh
 npx --yes --package=everkeep everkeep init
@@ -177,7 +180,7 @@ Settings come from flags, environment variables and an optional JSON file (`EVER
 
   After `everkeep init`; without it, add `--vault DIR` at the end.
 
-- **Claude Desktop without a public address:** Everkeep on stdio through Docker, see [Claude Desktop](https://github.com/st412m/everkeep/blob/main/docs/installation.md#claude-desktop).
+- **Claude Desktop on Windows or macOS:** the Everkeep extension, no address and no token, see [Claude Desktop](https://github.com/st412m/everkeep/blob/main/docs/installation.md#claude-desktop).
 - **Cursor and other clients:** the URL `http://127.0.0.1:3100/mcp` (or your HTTPS address) with the header `Authorization: Bearer <token>`, see [installation](https://github.com/st412m/everkeep/blob/main/docs/installation.md#other-clients).
 
 There is no OAuth: the token is the only key. A wrong path gets an empty 404, a wrong Bearer token 401.
@@ -234,7 +237,7 @@ everkeep policy set raw --mode readonly --vault /home/me/notes
 | `never` | new files only; existing files cannot be changed |
 | `free` | no checks |
 
-With Docker, run the same commands inside the container: `docker exec everkeep everkeep policy show`. With `everkeep serve`, the Vault policies page is at the connector address with `/policies` in place of `/mcp`. In the Home Assistant app, use the Vault policies page in the sidebar. The trash, auto-purge and what a broken marker does: [write policies](https://github.com/st412m/everkeep/blob/main/docs/policies.md).
+With Docker, run the same commands inside the container: `docker exec everkeep everkeep policy show`. With `everkeep serve`, the Vault policies page is at the connector address with `/policies` in place of `/mcp`. In the Home Assistant app, use the Vault policies page in the sidebar. In the Claude Desktop extension, list folders under Read-only folders in its settings. The trash, auto-purge and what a broken marker does: [write policies](https://github.com/st412m/everkeep/blob/main/docs/policies.md).
 
 ## Documents and formats
 
