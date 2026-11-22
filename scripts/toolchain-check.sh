@@ -5,6 +5,9 @@
 #       version is out of range, @napi-rs/canvas is installed, or the PDF,
 #       document or SQLite pipeline does not work
 #   sh .../scripts/toolchain-check.sh runtime  - prints the version banner
+#   sh .../scripts/toolchain-check.sh smoke    - the PDF, document and SQLite
+#       pipeline check alone, without the version guard and the manifest
+#       (CI on macOS: Homebrew poppler and the system sqlite3)
 set -eu
 
 # Node at least 22.17 (doclines); poppler and sqlite by major version. Patch
@@ -180,10 +183,14 @@ case "${1:-runtime}" in
     } > "$MANIFEST"
     echo "Toolchain OK -> $(tr '\n' ';' < "$MANIFEST" | sed 's/;$//; s/;/; /g')"
     ;;
+  smoke)
+    smoke
+    echo "Smoke OK: poppler $POPPLER_V ($(command -v pdftoppm)), doclines $DOCLINES_V, sqlite3 $SQLITE_V ($(command -v sqlite3))"
+    ;;
   runtime)
     echo "everkeep $EVERKEEP_V | doclines $DOCLINES_V | node $NODE_V | poppler $POPPLER_V | sqlite3 $SQLITE_V"
     ;;
   *)
-    echo "usage: sh $0 build|runtime" >&2; exit 2
+    echo "usage: sh $0 build|runtime|smoke" >&2; exit 2
     ;;
 esac

@@ -71,6 +71,19 @@ jobs:
           if [ -e "$RUNNER_TEMP/cs/PROBE" ]; then echo "the volume ignores case"; exit 1; fi
           rm "$RUNNER_TEMP/cs/probe"
           echo "TMPDIR=$RUNNER_TEMP/cs" >> "$GITHUB_ENV"
+      # macOS has no poppler and ships its own sqlite3 (Homebrew's sqlite is
+      # keg-only and does not reach PATH): install poppler, then run the PDF,
+      # document and SQLite pipeline the server uses against what PATH gives.
+      - name: External tools (macOS)
+        if: runner.os == 'macOS'
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: 1
+          HOMEBREW_NO_INSTALL_CLEANUP: 1
+        run: |
+          brew install poppler
+          which -a sqlite3 pdfinfo pdftoppm
+          sqlite3 -version
+          sh scripts/toolchain-check.sh smoke
       # The glob is quoted: node expands it itself.
       - name: Tests
         run: node --test "test/*.test.js"
