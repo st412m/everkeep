@@ -1,6 +1,8 @@
 'use strict';
 // Server instructions in initialize and server/discover: name CLAUDE.md or
-// AGENTS.md at the vault root when present, a fixed description otherwise.
+// AGENTS.md at the vault root by its full path when present (more urgent while
+// it is the unchanged starter file of everkeep init), a fixed description
+// otherwise.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
@@ -17,7 +19,7 @@ const META = {
   'io.modelcontextprotocol/clientInfo': { name: 't', version: '0' },
 };
 const NONE = 'Everkeep: a notes vault — text files and documents in one folder, read and edited through these tools under write policies.';
-const NAMED = name => `Everkeep: a notes vault. At the start of a session, read ${name} at the vault root with read_text_file and follow it.`;
+const NAMED = name => `Everkeep: a notes vault. Before the first vault operation in a session, read ${path.join(V, name)} with read_text_file and follow it.`;
 const AGENTS_TEXT = '# Agents\n\nRead the wiki first.\n';
 
 async function initInstructions() {

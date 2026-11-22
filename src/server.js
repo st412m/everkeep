@@ -1381,14 +1381,26 @@ const META_SERVER_INFO = 'io.modelcontextprotocol/serverInfo';
 // Server instructions: name the instruction file at the vault root, if any.
 const INSTRUCTION_FILES = ['CLAUDE.md', 'AGENTS.md'];
 const INSTRUCTIONS_NONE = 'Everkeep: a notes vault — text files and documents in one folder, read and edited through these tools under write policies.';
+const { STARTER_TEXT } = require('./starter');
+const STARTER_BYTES = Buffer.byteLength(STARTER_TEXT);
 
 function serverInstructions() {
   for (const name of INSTRUCTION_FILES) {
+    const file = path.join(ALLOWED_DIR, name);
     let st;
-    try { st = fs.statSync(path.join(ALLOWED_DIR, name)); }
+    try { st = fs.statSync(file); }
     catch { continue; }
-    if (st.isFile())
-      return `Everkeep: a notes vault. At the start of a session, read ${name} at the vault root with read_text_file and follow it.`;
+    if (!st.isFile()) continue;
+    // The starter file of everkeep init, unchanged, means the vault is not set
+    // up yet: the assistant is asked to read it before its first reply, so the
+    // first session starts the setup the file describes. Any change, or a read
+    // error, counts as set up: then before the first vault operation. The size
+    // is compared first, so a grown file is never read here.
+    let fresh = false;
+    try { fresh = st.size === STARTER_BYTES && fs.readFileSync(file, 'utf8') === STARTER_TEXT; } catch {}
+    return fresh
+      ? `Everkeep: a notes vault. This vault is not set up yet: before your first reply, read ${file} with read_text_file and follow it.`
+      : `Everkeep: a notes vault. Before the first vault operation in a session, read ${file} with read_text_file and follow it.`;
   }
   return INSTRUCTIONS_NONE;
 }
