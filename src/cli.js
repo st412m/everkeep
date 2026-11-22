@@ -750,10 +750,27 @@ async function main(argv) {
   return usageError(`unknown command "${cmd}"`);
 }
 
-if (require.main === module) {
+// Started as a program: by node itself, or by a host that loads the entry
+// point from its own script. Claude Desktop's built-in Node runs extensions
+// from its nodeHost.js, so there require.main is that file and argv[1] is this
+// one (measured 2026-11-22, Claude Desktop 6.28899.6.0 on Windows).
+function startedAsProgram() {
+  if (require.main === module) return true;
+  try { return !!process.argv[1] && fs.realpathSync.native(process.argv[1]) === fs.realpathSync.native(__filename); } catch { return false; }
+}
+
+// A command that is done exits once stdout and stderr are flushed. The process
+// is not left to end by itself: under Claude Desktop the host's channel keeps
+// it alive, and the client waits for an answer that never comes.
+function finish(code) {
+  process.exitCode = code;
+  process.stdout.write('', () => process.stderr.write('', () => process.exit(code)));
+}
+
+if (startedAsProgram()) {
   main(process.argv.slice(2)).then(
-    code => { if (code !== null) process.exitCode = code; },
-    err => { say(err && err.stack || String(err)); process.exitCode = 1; },
+    code => { if (code !== null) finish(code); },
+    err => { say(err && err.stack || String(err)); finish(1); },
   );
 }
 
