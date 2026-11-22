@@ -160,6 +160,12 @@ function loadConfig({ env = process.env, cwd = process.cwd(), homedir = os.homed
     }
   };
 
+  // A ${...} left in by a launcher that did not fill it in would otherwise
+  // become a folder of that name under the working directory.
+  for (const [v, source] of [[flags.vault, 'flag --vault'], [envValue(env, 'EVERKEEP_VAULT'), 'env EVERKEEP_VAULT']]) {
+    if (v !== undefined && /\$\{[^}]*\}/.test(v))
+      throw new ConfigError(`vault "${v}" (${source}) holds a \${...} placeholder that was not filled in: give the folder's real path`);
+  }
   pick('vault',
     [flags.vault !== undefined ? path.resolve(cwd, flags.vault) : undefined, 'flag --vault'],
     [envValue(env, 'EVERKEEP_VAULT') !== undefined ? path.resolve(cwd, env.EVERKEEP_VAULT) : undefined, 'env EVERKEEP_VAULT'],

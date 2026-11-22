@@ -198,10 +198,13 @@ async function stdioCommand(args) {
   // Nothing but the protocol on stdout: a stray console.log goes to stderr.
   console.log = console.error;
   console.info = console.error;
-  const loaded = load({ vault: opts.vault });
+  const extension = extensionMode(process.env);
+  const vaultFlag = extension ? extensionVault(opts.vault, { env: process.env, homedir: os.homedir() }) : opts.vault;
+  const loaded = load({ vault: vaultFlag });
   const vault = C.requireVault(loaded);
   C.assertStateOutsideVault(loaded.settings.state_dir, vault);
   C.ensureStateDir(loaded.settings.state_dir);
+  if (extension) firstRun(vault, { stateDir: loaded.settings.state_dir, homedir: os.homedir() });
   const S = require('./server');
   // No page on stdio: refusals name `everkeep policy`.
   const mode = loaded.settings.policy_page.mode;
@@ -530,64 +533,25 @@ const READY_OTHER = [
   'HTTP clients: run `everkeep serve`, then `everkeep token` for the connector path.',
 ];
 
-// Creates a vault with an instruction file and a starter policy and saves it
-// as the default vault. Every check runs before anything is created; nothing
-// that exists is changed.
-async function initCommand(rest, { env = process.env, homedir = os.homedir(), interactive = !!(process.stdin.isTTY && process.stdout.isTTY) } = {}) {
-  let parsed;
-  try {
-    parsed = parseArgs({ args: rest, options: { agent: { type: 'string' } }, allowPositionals: true });
-  } catch (e) {
-    return usageError(e.message);
-  }
-  const { values, positionals } = parsed;
-  if (positionals.length > 1) return usageError(`unexpected argument "${positionals[1]}"`);
-  if (values.agent !== undefined && !['claude', 'other'].includes(values.agent))
-    return usageError('--agent must be claude or other');
+// Why DIR cannot be a vault that init or the extension's first start sets up,
+// or null: the home folder, a filesystem root, or something that is not a
+// directory.
+function vaultDirProblem(dir, homedir) {
+  if (dir === path.resolve(homedir)) return `${dir} is the home folder — give a folder of its own, e.g. ~/everkeep`;
+  if (path.parse(dir).root === dir) return `${dir} is a filesystem root — give a folder of its own, e.g. ~/everkeep`;
+  let st = null;
+  try { st = fs.statSync(dir); } catch (e) { if (e.code !== 'ENOENT') throw e; }
+  if (st && !st.isDirectory()) return `${dir} exists and is not a directory`;
+  return null;
+}
 
-  const refuse = msg => { say(msg); return 1; };
-
-  if (env.EVERKEEP_CONFIG)
-    return refuse(`EVERKEEP_CONFIG is set (${env.EVERKEEP_CONFIG}): add "vault" to that file yourself; init writes only ~/.config/everkeep/config.json`);
-
-  const dir = positionals.length ? path.resolve(positionals[0]) : path.join(homedir, 'everkeep');
-  if (dir === path.resolve(homedir)) return refuse(`${dir} is the home folder — give a folder of its own, e.g. ~/everkeep`);
-  if (path.parse(dir).root === dir) return refuse(`${dir} is a filesystem root — give a folder of its own, e.g. ~/everkeep`);
-
-  let dirStat = null;
-  try { dirStat = fs.statSync(dir); } catch (e) { if (e.code !== 'ENOENT') throw e; }
-  if (dirStat && !dirStat.isDirectory()) return refuse(`${dir} exists and is not a directory`);
-
-  const cfg = path.join(homedir, '.config', 'everkeep', 'config.json');
-  let current = null;
-  let saveVault = true;
-  if (fs.existsSync(cfg)) {
-    try { current = C.readConfigFile(cfg); } catch (e) {
-      if (e.name !== 'ConfigError') throw e;
-      return refuse(e.message);
-    }
-    const vault = current && typeof current === 'object' && !Array.isArray(current) ? current.vault : undefined;
-    if (typeof vault === 'string') {
-      if (path.resolve(vault) !== dir)
-        return refuse(`${cfg} already names the vault ${vault}; init does not change it. To use ${dir}, edit that file, or run everkeep with --vault ${dir}`);
-      saveVault = false;
-    }
-  }
-
-  let editorMode;
-  try {
-    const { settings } = C.loadConfig({ env, homedir, flags: { vault: dir } });
-    editorMode = settings.policy_page.mode;
-    C.assertStateOutsideVault(settings.state_dir, dir);
-  } catch (e) {
-    if (e.name !== 'ConfigError') throw e;
-    return refuse(e.message);
-  }
-
-  const agent = values.agent || (interactive ? await askAgent() : 'claude');
-
+// Creates DIR when missing, writes the starter instruction file when neither
+// CLAUDE.md nor AGENTS.md is at its root, and the root marker (rev, trash on)
+// when it has none. Nothing that exists is changed. Reports on stderr.
+function setupVault(dir, { agent, editorMode }) {
+  const existed = fs.existsSync(dir);
   fs.mkdirSync(dir, { recursive: true });
-  say(`vault: ${dir} (${dirStat ? 'exists' : 'created'})`);
+  say(`vault: ${dir} (${existed ? 'exists' : 'created'})`);
 
   const present = p => { try { fs.lstatSync(p); return true; } catch (e) { if (e.code === 'ENOENT') return false; throw e; } };
   const name = agent === 'claude' ? 'CLAUDE.md' : 'AGENTS.md';
@@ -621,6 +585,62 @@ async function initCommand(rest, { env = process.env, homedir = os.homedir(), in
     W.writeMarker(R, target, W.specOf(change, W.contextOf(R, target)), editorMode);
     say('policy: edits need the current rev, trash on (written)');
   }
+  return { wroteInstructions };
+}
+
+// Creates a vault with an instruction file and a starter policy and saves it
+// as the default vault. Every check runs before anything is created; nothing
+// that exists is changed.
+async function initCommand(rest, { env = process.env, homedir = os.homedir(), interactive = !!(process.stdin.isTTY && process.stdout.isTTY) } = {}) {
+  let parsed;
+  try {
+    parsed = parseArgs({ args: rest, options: { agent: { type: 'string' } }, allowPositionals: true });
+  } catch (e) {
+    return usageError(e.message);
+  }
+  const { values, positionals } = parsed;
+  if (positionals.length > 1) return usageError(`unexpected argument "${positionals[1]}"`);
+  if (values.agent !== undefined && !['claude', 'other'].includes(values.agent))
+    return usageError('--agent must be claude or other');
+
+  const refuse = msg => { say(msg); return 1; };
+
+  if (env.EVERKEEP_CONFIG)
+    return refuse(`EVERKEEP_CONFIG is set (${env.EVERKEEP_CONFIG}): add "vault" to that file yourself; init writes only ~/.config/everkeep/config.json`);
+
+  const dir = positionals.length ? path.resolve(positionals[0]) : path.join(homedir, 'everkeep');
+  const problem = vaultDirProblem(dir, homedir);
+  if (problem) return refuse(problem);
+
+  const cfg = path.join(homedir, '.config', 'everkeep', 'config.json');
+  let current = null;
+  let saveVault = true;
+  if (fs.existsSync(cfg)) {
+    try { current = C.readConfigFile(cfg); } catch (e) {
+      if (e.name !== 'ConfigError') throw e;
+      return refuse(e.message);
+    }
+    const vault = current && typeof current === 'object' && !Array.isArray(current) ? current.vault : undefined;
+    if (typeof vault === 'string') {
+      if (path.resolve(vault) !== dir)
+        return refuse(`${cfg} already names the vault ${vault}; init does not change it. To use ${dir}, edit that file, or run everkeep with --vault ${dir}`);
+      saveVault = false;
+    }
+  }
+
+  let editorMode;
+  try {
+    const { settings } = C.loadConfig({ env, homedir, flags: { vault: dir } });
+    editorMode = settings.policy_page.mode;
+    C.assertStateOutsideVault(settings.state_dir, dir);
+  } catch (e) {
+    if (e.name !== 'ConfigError') throw e;
+    return refuse(e.message);
+  }
+
+  const agent = values.agent || (interactive ? await askAgent() : 'claude');
+
+  const { wroteInstructions } = setupVault(dir, { agent, editorMode });
 
   if (!saveVault) {
     say(`default vault: ${cfg} already names it`);
@@ -635,6 +655,77 @@ async function initCommand(rest, { env = process.env, homedir = os.homedir(), in
   if (wroteInstructions)
     say(agent === 'claude' ? 'instruction file for another assistant: everkeep init --agent other' : 'instruction file for Claude: everkeep init --agent claude');
   return 0;
+}
+
+// ---------------------------------------------------------------------------
+// Claude Desktop extension (.mcpb)
+// ---------------------------------------------------------------------------
+
+// The extension's manifest sets EVERKEEP_EXTENSION and passes the Notes folder
+// setting as --vault. Claude Desktop starts the server in C:\WINDOWS\system32
+// and passes an untouched default ("${HOME}/everkeep") or an empty optional
+// setting as the literal placeholder (measured 2026-11-22, Claude Desktop
+// 6.28899.6.0 on Windows), so the value is checked here and never resolved
+// against the working directory.
+const EXTENSION = 'claude-desktop';
+const FIRST_RUN_FILE = 'first-run.json';
+
+function extensionMode(env) {
+  const v = env.EVERKEEP_EXTENSION;
+  if (v === undefined || v === '') return false;
+  if (v !== EXTENSION) throw new C.ConfigError(`EVERKEEP_EXTENSION must be "${EXTENSION}" (got "${v}")`);
+  return true;
+}
+
+// The vault from the extension's --vault value: unfilled → ~/everkeep; a
+// leading ${HOME} → the home folder; any other placeholder or a path that is
+// not absolute → refused, naming the settings.
+function extensionVault(value, { env, homedir }) {
+  const where = `set the Notes folder in ${env.EVERKEEP_SETTINGS_UI || 'the extension settings'}`;
+  if (value === undefined || value === '' || /^\$\{user_config\.[^}]*\}$/.test(value)) return path.join(homedir, 'everkeep');
+  let v = value;
+  const home = /^\$\{HOME\}(?=$|[\\/])/.exec(v);
+  if (home) v = path.join(homedir, v.slice(home[0].length));
+  if (/\$\{[^}]*\}/.test(v)) throw new C.ConfigError(`the Notes folder "${value}" holds a placeholder that was not filled in: ${where}`);
+  // On Windows a path without a drive letter or a UNC prefix (\notes) is
+  // relative to the current drive.
+  const full = process.platform === 'win32' ? /^(?:[A-Za-z]:[\\/]|\\\\)/.test(v) : path.isAbsolute(v);
+  if (!full) throw new C.ConfigError(`the Notes folder "${value}" is not a full path: ${where}`);
+  return path.resolve(v);
+}
+
+// The folders the first start has set up, by real path, from the state dir.
+function firstRunFolders(file) {
+  let text;
+  try { text = fs.readFileSync(file, 'utf8'); } catch (e) {
+    if (e.code === 'ENOENT') return [];
+    throw new C.ConfigError(`${file}: cannot read (${e.code || e.message})`);
+  }
+  let j;
+  try { j = JSON.parse(text); } catch { j = null; }
+  if (!j || !Array.isArray(j.folders) || !j.folders.every(f => typeof f === 'string'))
+    throw new C.ConfigError(`${file}: not the list of set-up folders everkeep writes; delete it and restart (an existing CLAUDE.md, AGENTS.md or marker is never changed)`);
+  return j.folders;
+}
+
+// First start in a folder: set it up as init does (agent claude), once. A
+// folder already set up is never written to again, so a CLAUDE.md or marker
+// the person deleted stays deleted; a set-up folder that is gone is set up
+// again.
+function firstRun(dir, { stateDir, homedir }) {
+  const file = path.join(stateDir, FIRST_RUN_FILE);
+  const done = firstRunFolders(file);
+  let real = null;
+  try { if (fs.statSync(dir).isDirectory()) real = fs.realpathSync.native(dir); } catch {}
+  if (real !== null && done.includes(real)) return;
+  const problem = vaultDirProblem(dir, homedir);
+  if (problem) throw new C.ConfigError(problem);
+  say('first start in this folder: setting it up (once)');
+  setupVault(dir, { agent: 'claude', editorMode: 'off' });
+  real = fs.realpathSync.native(dir);
+  const tmp = `${file}.tmp-${process.pid}`;
+  fs.writeFileSync(tmp, JSON.stringify({ folders: [...done.filter(f => f !== real), real] }, null, 2) + '\n');
+  fs.renameSync(tmp, file);
 }
 
 // ---------------------------------------------------------------------------
