@@ -73,7 +73,9 @@ jobs:
           echo "TMPDIR=$RUNNER_TEMP/cs" >> "$GITHUB_ENV"
       # macOS has no poppler and ships its own sqlite3 (Homebrew's sqlite is
       # keg-only and does not reach PATH): install poppler, then run the PDF,
-      # document and SQLite pipeline the server uses against what PATH gives.
+      # document and SQLite pipeline the server uses. /usr/bin goes first:
+      # the runner's Android SDK has its own sqlite3 earlier on PATH, and the
+      # one to check is the sqlite3 macOS ships.
       - name: External tools (macOS)
         if: runner.os == 'macOS'
         env:
@@ -82,8 +84,9 @@ jobs:
         run: |
           brew install poppler
           which -a sqlite3 pdfinfo pdftoppm
-          sqlite3 -version
-          sh scripts/toolchain-check.sh smoke
+          sw_vers
+          /usr/bin/sqlite3 -version
+          PATH="/usr/bin:$PATH" sh scripts/toolchain-check.sh smoke
       # The glob is quoted: node expands it itself.
       - name: Tests
         run: node --test "test/*.test.js"
