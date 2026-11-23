@@ -6,7 +6,7 @@ Symptoms and what they mean: a client that shows no tools or old tools, HTTP sta
 
 Go through these in order:
 
-1. **Is the server running?** In Docker: `docker ps` lists `everkeep`; `docker logs everkeep` shows its start line, `everkeep 1.1.0 on 0.0.0.0:3100, vault /vault, …`.
+1. **Is the server running?** In Docker: `docker ps` lists `everkeep`; `docker logs everkeep` shows its start line, `everkeep 1.2.0 on 0.0.0.0:3100, vault /vault, …`.
 2. **Is the token current?** `everkeep token` (in Docker: `docker exec everkeep everkeep token`) prints the path and the header in force. After `everkeep token --new` the server must be restarted, and every client updated.
 3. **Does the address answer?** Run the `curl` check below against the same URL the client uses. For claude.ai, run it from another network (a phone hotspot), because claude.ai comes from the internet.
 4. **Do requests arrive?** Switch on the [request log](#seeing-the-requests) and connect again.

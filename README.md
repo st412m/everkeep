@@ -26,14 +26,14 @@ Windows (PowerShell):
 
 ```powershell
 mkdir $HOME\everkeep-notes
-docker run -d --name everkeep --restart unless-stopped -p 127.0.0.1:3100:3100 -v "$HOME\everkeep-notes:/vault" -v everkeep-data:/data ghcr.io/st412m/everkeep:1.1.0
+docker run -d --name everkeep --restart unless-stopped -p 127.0.0.1:3100:3100 -v "$HOME\everkeep-notes:/vault" -v everkeep-data:/data ghcr.io/st412m/everkeep:1.2.0
 ```
 
 macOS or Linux:
 
 ```sh
 mkdir -p ~/everkeep-notes
-docker run -d --name everkeep --restart unless-stopped -p 127.0.0.1:3100:3100 -v "$HOME/everkeep-notes:/vault" -v everkeep-data:/data ghcr.io/st412m/everkeep:1.1.0
+docker run -d --name everkeep --restart unless-stopped -p 127.0.0.1:3100:3100 -v "$HOME/everkeep-notes:/vault" -v everkeep-data:/data ghcr.io/st412m/everkeep:1.2.0
 ```
 
 On Linux the folder must be writable by user id 1000. If the command `id -u` prints a different number, follow [Docker: who owns the folder](https://github.com/st412m/everkeep/blob/main/docs/installation.md#who-owns-the-folder) instead.
@@ -245,7 +245,7 @@ With Docker, run the same commands inside the container: `docker exec everkeep e
 
 ## Limitations
 
-- **macOS is tested in CI only**, on GitHub's macOS runners, not yet on a real Mac. Reports are welcome.
+- **macOS is tested in CI only**, on GitHub's macOS runners, not yet on a real Mac; the Claude Desktop extension has been tested on Windows only. Reports are welcome.
 - **No OAuth.** The token in the path or the Bearer header is the only key.
 - **No delete.** `trash_file` moves a file into a trash directory, and only in a zone that has one.
 - **SQLite is read-only** and will stay so.

@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.2.0 — 2026-11-23
+
+### Added
+- **Windows and macOS without Docker.** Everkeep runs natively on Windows and macOS with Node.js 22.17 or later. On Windows, names Windows cannot keep are refused below the vault root with `PATH_WINDOWS_NAME` (`:`, a trailing space or period, device names such as `CON` or `COM1` with or without an extension, `\\?\` and `\\.\` paths, 8.3 short names); a junction out of the vault is refused; a vault on a UNC path works; a marker held open by another program is retried for under a second, then the change is refused with a message saying so. On macOS, APFS without case or Unicode-normalization distinctions is handled like the other case-insensitive file systems; a path that spells the vault root in another case or Unicode form is refused with `PATH_OUTSIDE_VAULT` and a hint naming the root. macOS is tested in CI on GitHub's macOS runners, not yet on a real Mac.
+- **Claude Desktop extension** for Windows and macOS: `everkeep-<version>.mcpb`, attached to each GitHub release. Claude Desktop runs Everkeep with its own Node.js over stdio; no Docker, address or token. Its settings hold the Notes folder (default `everkeep` in the home folder) and Read-only folders. On the first start in a folder, the folder is created if missing, a starter `CLAUDE.md` is written when neither `CLAUDE.md` nor `AGENTS.md` is there, and a root marker (edits need the current rev, trash on) when the folder has none; once per folder, remembered in the state directory. Each read-only folder gets a read-only marker, removed again when the folder leaves the list; a marker the person set is left alone. Refusals and markers name the extension settings. On macOS the extension puts Homebrew's folders in front of PATH. Tested on Windows, not yet on macOS.
+- **`everkeep init [DIR] [--agent claude|other]`** creates a vault (default `~/everkeep`) with a starter instruction file (`CLAUDE.md`, or `AGENTS.md` with `--agent other`) and a starter policy (edits need the current rev, trash on), saves it as the default vault and runs `check-config`. It never overwrites anything, and refuses the home folder, a drive root, the state directory and a folder inside another vault. A server started without a vault says to run `everkeep init` or set `EVERKEEP_VAULT`; `EVERKEEP_VAULT` is optional in `server.json`.
+- **Server instructions** in `initialize` and `server/discover`: read the vault's `CLAUDE.md` (or `AGENTS.md` when there is no `CLAUDE.md`) before the first vault operation in a session; while that file is still the unchanged starter, before the first reply. With neither file, a one-line description of the server. The tool list is unchanged.
+- **Vault policies page for `everkeep serve`** (policy page mode `token`, the default outside Home Assistant): `/private_<token>/policies` on the same port, behind the same token. Saving needs an `Origin` whose host is the request's `Host` or listed in `allowed_hosts`; the page is sent with `no-store`, no referrer and no framing. `everkeep token` and the start line print its URL. The Home Assistant app keeps its ingress page.
+
+### Changed
+- `grep_files` runs in a worker thread that is stopped after 10 seconds, not in a child process: Claude Desktop's built-in Node does not let a server start its own executable.
+- CI runs on Node 22, 24 and 26, on Linux, Windows and macOS (macOS: on a case-sensitive APFS image as well, with Homebrew sqlite and poppler).
+- Documentation: one «Without Docker» section for Linux, macOS and Windows with the Node.js, poppler and sqlite install lines; a vault on its own drive in Home Assistant (Local disk storage); deleting over a Samba share is permanent.
+
+### Fixed
+- `edit_file` with `oldText`/`newText` inserts the new text exactly as given: `$&`, `` $` ``, `$'` and `$$` in it were expanded as replacement patterns.
+
+### Security
+- Request bodies are limited: `/mcp` to twice `max_text_bytes` plus 1 MiB (41 MiB by default), the policy page to 1 MiB. A larger request gets 413 with `Connection: close`, on `/mcp` with a JSON-RPC error saying to write big files in parts; the token is checked first. Before, the body was read whole, so a client with the token could fill the server's memory.
+
 ## 1.1.0 — 2026-10-27
 
 ### Added

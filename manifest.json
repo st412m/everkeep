@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "everkeep",
   "display_name": "Everkeep",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Your notes in one folder on your computer: Claude reads them at the start of a chat and writes down what you worked out.",
   "long_description": "Everkeep keeps notes, decisions and projects as plain files in one folder. Claude reads and edits them through 20 tools under write policies you set: a folder can be read-only, edits can require the current version of a file, and discarded files go to a trash instead of being deleted. On the first start in a folder without a CLAUDE.md or AGENTS.md, Everkeep adds a starter CLAUDE.md, so the first chat sets the folder up by asking what you want to keep. Text, Markdown and common documents (PDF, Word, spreadsheets) are read as numbered lines. SQLite and PDF page images need sqlite3 and poppler installed separately.",
   "author": {

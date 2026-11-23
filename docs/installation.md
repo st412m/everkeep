@@ -36,7 +36,7 @@ If it prints `1000`, the Quick start works as it is. If it prints another number
 
 ```sh
 mkdir -p ~/everkeep-notes ~/.local/state/everkeep-docker
-docker run -d --name everkeep --restart unless-stopped --user "$(id -u):$(id -g)" -p 127.0.0.1:3100:3100 -v "$HOME/everkeep-notes:/vault" -v "$HOME/.local/state/everkeep-docker:/data" ghcr.io/st412m/everkeep:1.1.0
+docker run -d --name everkeep --restart unless-stopped --user "$(id -u):$(id -g)" -p 127.0.0.1:3100:3100 -v "$HOME/everkeep-notes:/vault" -v "$HOME/.local/state/everkeep-docker:/data" ghcr.io/st412m/everkeep:1.2.0
 ```
 
 In `compose.example.yaml` the same is the `user:` line plus a `/data` that belongs to that user. If `/data` is not writable, the server stops at start with a message that names the directory and the user id.
@@ -47,7 +47,7 @@ The version is part of the image name. To move to a new version, remove the cont
 
 ```sh
 docker rm -f everkeep
-docker run -d --name everkeep --restart unless-stopped -p 127.0.0.1:3100:3100 -v "$HOME/everkeep-notes:/vault" -v everkeep-data:/data ghcr.io/st412m/everkeep:1.1.0
+docker run -d --name everkeep --restart unless-stopped -p 127.0.0.1:3100:3100 -v "$HOME/everkeep-notes:/vault" -v everkeep-data:/data ghcr.io/st412m/everkeep:1.2.0
 ```
 
 ### Building the image yourself
@@ -55,13 +55,13 @@ docker run -d --name everkeep --restart unless-stopped -p 127.0.0.1:3100:3100 -v
 The repository's `Dockerfile` builds the same image from npm. It needs Docker 23 or later (BuildKit):
 
 ```sh
-docker build -t everkeep:1.1.0 .
+docker build -t everkeep:1.2.0 .
 ```
 
 To build from a tarball made by `npm pack`, put the tarball next to the `Dockerfile` and name it in the build argument `EVERKEEP_TARBALL`:
 
 ```sh
-docker build --build-arg EVERKEEP_TARBALL=everkeep-1.1.0.tgz -t everkeep:1.1.0 .
+docker build --build-arg EVERKEEP_TARBALL=everkeep-1.2.0.tgz -t everkeep:1.2.0 .
 ```
 
 ## Without Docker
@@ -134,7 +134,7 @@ grep -o -m1 avx /proc/cpuinfo
 If this prints nothing, install without the optional part. `npm install -g` installs it even with `--omit=optional`, so install into a folder of its own and link the command:
 
 ```sh
-npm install --prefix ~/.local/lib/everkeep --omit=optional --no-package-lock everkeep@1.1.0
+npm install --prefix ~/.local/lib/everkeep --omit=optional --no-package-lock everkeep@1.2.0
 mkdir -p ~/.local/bin
 ln -s ~/.local/lib/everkeep/node_modules/.bin/everkeep ~/.local/bin/everkeep
 ```
