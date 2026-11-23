@@ -20,6 +20,9 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 24
+      # check-release loads src/server.js to compare the manifest's tools, and
+      # src/server.js needs the dependencies.
+      - run: npm ci --omit=optional
       - name: Tag matches package.json
         run: |
           v=$(node -p "require('./package.json').version")
