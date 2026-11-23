@@ -26,6 +26,9 @@ function runHosted(home, args, extraEnv, { closeStdin = true } = {}) {
     let stdout = '', stderr = '';
     child.stdout.on('data', c => (stdout += c));
     child.stderr.on('data', c => (stderr += c));
+    // A refusal can end the child before it reads stdin: the write then fails
+    // with EPIPE (seen on macOS runners), which is expected here.
+    child.stdin.on('error', () => {});
     child.stdin.write(JSON.stringify(INIT) + '\n');
     if (closeStdin) child.stdin.end();
     const timer = setTimeout(() => child.kill(), 10000);
