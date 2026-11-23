@@ -191,7 +191,7 @@ PDF page images and SQLite still need poppler and `sqlite3`: run only the popple
 
 The extension has been tested on Windows. On macOS it has not been tested yet; reports are welcome.
 
-If the tools do not appear, the log is `mcp-server-Everkeep.log` in `%LOCALAPPDATA%\Claude\logs` on Windows (if it is not there, `%APPDATA%\Claude\logs`) or in `~/Library/Logs/Claude` on macOS.
+If the tools do not appear, look in `%LOCALAPPDATA%\Claude\logs` on Windows (if it is not there, `%APPDATA%\Claude\logs`) or `~/Library/Logs/Claude` on macOS: `mcp-server-Everkeep.log` shows the connection, and Everkeep's own messages (its start line, a refusal and why) are in `main.log`, on lines marked UtilityProcess stderr.
 
 The extension is built for Windows and macOS only. Claude Desktop for Linux (a beta) has not been tested with Everkeep; on Linux, use [Claude Code](#claude-code) or another client from [Other clients](#other-clients), or connect over HTTPS as in [remote access](remote-access.md).
 
