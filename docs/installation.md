@@ -187,13 +187,13 @@ On Windows and macOS, Everkeep comes as a Claude Desktop extension. Claude Deskt
 4. Optionally, list folders under **Read-only folders**: Claude can read them but not change them. Everkeep writes a read-only marker into each one that has none, and removes it again when the folder leaves the list; a folder with a marker of its own keeps it.
 5. Turn the extension on.
 
-PDF page images and SQLite still need poppler and `sqlite3`, installed as in [Without Docker](#without-docker); the extension looks for them on the PATH Claude Desktop was started with, so restart Claude Desktop after installing them. On macOS an app started from the Dock does not get the PATH set in `~/.zprofile`, so the extension puts Homebrew's folders (`/opt/homebrew/opt/sqlite/bin`, `/opt/homebrew/bin`, and the same under `/usr/local` on Intel Macs) in front by itself.
+PDF page images and SQLite still need poppler and `sqlite3`: run only the poppler and `sqlite3` lines for your system from [Without Docker](#without-docker), not the Node.js ones (the extension brings its own). The extension looks for them on the PATH Claude Desktop was started with, so restart Claude Desktop after installing them. On macOS an app started from the Dock does not get the PATH set in `~/.zprofile`, so the extension puts Homebrew's folders (`/opt/homebrew/opt/sqlite/bin`, `/opt/homebrew/bin`, and the same under `/usr/local` on Intel Macs) in front by itself.
 
 The extension has been tested on Windows. On macOS it has not been tested yet; reports are welcome.
 
-If the tools do not appear, the log is `mcp-server-Everkeep.log` in `%LOCALAPPDATA%\Claude\logs` on Windows or in `~/Library/Logs/Claude` on macOS.
+If the tools do not appear, the log is `mcp-server-Everkeep.log` in `%LOCALAPPDATA%\Claude\logs` on Windows (if it is not there, `%APPDATA%\Claude\logs`) or in `~/Library/Logs/Claude` on macOS.
 
-There is no extension for Claude Desktop on Linux. There, add Everkeep under `mcpServers` in Claude Desktop's `claude_desktop_config.json`, with `"command": "npx"` and `"args": ["--yes", "--package=everkeep", "everkeep", "--vault", "/home/me/notes"]`; Node.js must be installed.
+The extension is built for Windows and macOS only. Claude Desktop for Linux (a beta) has not been tested with Everkeep; on Linux, use [Claude Code](#claude-code) or another client from [Other clients](#other-clients), or connect over HTTPS as in [remote access](remote-access.md).
 
 ## Claude Code
 
